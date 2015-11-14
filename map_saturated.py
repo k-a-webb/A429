@@ -18,63 +18,168 @@ def main():
                         help="Fits image of star field")
     parser.add_argument("--sexfile", '-sf',
                         action='store',
-                        default='/Users/kawebb/Dropbox/A429/L1544/L1544_sex.txt',
-                        help='List of star positions as output by sextractor.')
-    parser.add_argument("--outfile", '-of',
+                        default='/Users/kawebb/Dropbox/A429/L1544/L1544_J_sex_2m.txt',
+                        help='List of star positions as output by sextractor for 2mass comparison.')
+    parser.add_argument("--usout", '-us',
                         action='store',
                         default=None,
-                        help='Out file, list of unsaturated stars')
+                        help='List of unsaturated stars in image, will be created if not specified')
     parser.add_argument("--tmass", '-tm',
                         action='store',
-                        default='2mass_L1544.tbl',
+                        default='/Users/kawebb/Dropbox/A429/2mass_L1544.tbl',
                         help='File of 2Mass stars in region of interest')
+    parser.add_argument("--tmout",
+                        action='store',
+                        default=None,
+                        help='File of 2Mass stars in the image')
     parser.add_argument("--toplot", '-plt',
                         action='store',
                         default=False,
                         help='Whether or not to plot saturated stars over top of the image')
+    parser.add_argument("--band", '-b',
+                        action='store',
+                        default='J',
+                        help='What colour band the image is in')
     args = parser.parse_args()
 
+    uslist = remove_satur(args.image, args.sexfile, args.usout, args.toplot)
+    tmstars = parse_2mass(args.tmass, uslist, args.tmout, args.band)
 
-    remove_satur(args.image, args.sexfile, args.outfile, args.toplot)
-    find_2mass(args.image, args.tmass, args.outfile)
+    plot_plots(args.image, uslist, tmstars, args.toplot)
+
+    compare_magnitudes(uslist, tmstars, args.toplot)
 
 
-def find_2mass(ffile, tmfile, usfile):
+def plot_plots(ffile, uslist, tmstars, toplot):
 
-    tmlist = read_2mass(tmfile)
-    uslist = read_usfile(usfile)
+    if not toplot:
+        return
+
+    fdata, fhdr = read_fits(ffile)
+
+    # Unsaturated stars
+    plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
+    plt.plot(uslist.x.values, uslist.y.values, 'x')
+    plt.title('Unsaturated stars')
+    plt.show()
+
+    idx = np.zeros(len(tmstars))
+    for i in tmstars.index:
+        sig = 0.005
+        stars = []
+        while len(stars) == 0:
+            ras = uslist.query('({} < x_wcs) & (x_wcs < {})'.format(tmstars.ra[i] - sig, tmstars.ra[i] + sig))
+            stars = ras.query('({} < y_wcs) & (y_wcs < {})'.format(tmstars.dec[i] - sig, tmstars.dec[i] + sig))
+            sig += 0.001
+        idx[i] = stars.index[0]
+    us2mstars = uslist.loc[idx, :]
+
+    # Unsaturated stars and 2Mass stars
+    plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
+    plt.plot(uslist.x.values, uslist.y.values, 'x', label='Unsaturated stars')
+    plt.plot(us2mstars.x.values, us2mstars.y.values, 'o', label='2Mass stars')
+    plt.legend()
+    plt.title('Saturated stars')
+    plt.show()
+
+    r = [3,5,8,12,15]
+    mag = [18.398, 17.911, 17.69, 17.58, 17.555]
+    mag2 = [18.422, 17.946, 17.738, 17.638, 17.599]
+
+    plt.plot(r, mag, label='weighted average')
+    plt.plot(r, mag2, label='average')
+    plt.legend()
+    plt.show()
+
+
+def compare_magnitudes(uslist, tmstars, toplot=False):
+    """ Comparing magnitudes from source extractor and 2mass """
+
+    print '  Comparing colours of 2Mass stars and stars in the image'
+    tmcol = tmstars.j_m
+    uscol = uslist.mag_aper
+
+    # create weighting function for calculating average
+    # at this stage this is a step function
+    # perhaps could later be logarithmic
+
+    highmag = np.int(np.max(tmcol))
+    lowmag = np.int(np.min(tmcol))
+    var = np.arange(highmag, lowmag, -1)
+
+    wgt = np.ones_like(tmcol)*highmag
+    for i, imag in enumerate(var):
+        for ii, mag in enumerate(tmcol):
+            if int(mag) == imag:
+                wgt[ii] = i
+
+    df = pd.DataFrame(data={'mag':tmcol, 'weight':wgt})
+    dfs = df.sort('mag')
+
+    # plt.plot(dfs.mag.values, dfs.weight.values)
+    # plt.show()
+
+    offset = tmcol-uscol
+    avg = np.average(offset, weights=wgt)
+    sig = np.var(offset)
+
+
+    print np.average(uscol, weights=wgt), np.mean(uscol)
+    print avg, sig, np.mean(offset)
+
+    tmcols = np.sort(tmcol)
+    ones = np.ones_like(tmcols)
+
+    # plt.scatter(tmcols, offset, alpha=0.2)
+    # plt.plot(tmcols, ones*avg)
+    # plt.fill_between(tmcols, ones*avg+sig, ones*avg-sig, alpha=0.2)
+    # plt.xlabel('Magnitude') ; plt.ylabel('Magnitude difference')
+    # plt.show()
+
+
+def parse_2mass(tmfile, uslist, tmout=None, band='J'):
+    if tmout is None:
+        tmout = tmfile.split('.')[0] + '_{}.tbl'.format(band)
+    if os.path.exists(tmout):
+        print '  2Mass list has already been parsed for this image: {}'.format(tmout)
+        return read_2mass(tmout, 1)
+
+    assert os.path.exists(tmfile), '2Mass file does not exist: {}'.format(tmfile)
+    print '  Identifying 2Mass catalog stars with Unsaturated stars in CFHT image'
+
+    tmlist = read_2mass(tmfile, skiplines=55)
 
     idx = np.zeros(len(uslist))
     for i in uslist.index:
         sig = 0.005
         stars = []
         while len(stars) == 0:
-            ras = tmlist.query('({} < ra) & (ra < {})'.format(uslist.x_wcs[i]-sig, uslist.x_wcs[i]+sig))
-            stars = ras.query('({} < dec) & (dec < {})'.format(uslist.y_wcs[i]-sig, uslist.y_wcs[i]+sig))
+            ras = tmlist.query('({} < ra) & (ra < {})'.format(uslist.x_wcs[i] - sig, uslist.x_wcs[i] + sig))
+            stars = ras.query('({} < dec) & (dec < {})'.format(uslist.y_wcs[i] - sig, uslist.y_wcs[i] + sig))
             sig += 0.001
         idx[i] = stars.index[0]
 
-    tmstars = tmlist.loc[idx,:]
+    tmstars = tmlist.loc[idx, :]
 
-    tmstars.to_csv('outfile.txt', index=False, sep=' ')
+    tmstars.to_csv(tmout, index=False, sep=' ')
     return tmstars
+
 
 def remove_satur(ffile, sfile, ofile=None, toplot=False):
 
     if ofile is None:
-        ofile = sfile.strip('.txt') + '_clean.txt'
+        ofile = sfile.strip('.txt') + '_unsat.txt'
+
     if os.path.exists(ofile):
         print '  List of unsaturated stars already exists: {}'.format(ofile)
-        return
-    else:
-        print "  Creating list of unsaturated stars for image {}, writing to {}".format(ffile, ofile)
+        return read_sex(ofile, skiplines=1)
 
-    stable = read_sex(sfile)
+    print "  Creating list of unsaturated stars for image {}, writing to {}".format(ffile, ofile)
+
+    stable = read_sex(sfile, skiplines=13)
     fdata, fhdr = read_fits(ffile)
-
     ix = detect_satur(fdata, stable['x'].values, stable['y'].values, stable['b'].values)
     us_stable = stable[ix]
-
     us_stable.to_csv(ofile, index=False, sep=' ')
 
     if toplot:
@@ -84,13 +189,10 @@ def remove_satur(ffile, sfile, ofile=None, toplot=False):
         plt.title('Saturated stars')
         plt.show()
 
-        plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
-        plt.plot(us_stable.x.values, us_stable.y.values, 'x')
-        plt.title('Unsaturated stars')
-        plt.show()
+    return us_stable
+
 
 def detect_satur(fdata, x, y, r, nz=1.):
-
     idx = []
     n = np.arange(len(x))
 
@@ -110,32 +212,26 @@ def detect_satur(fdata, x, y, r, nz=1.):
     ix = np.invert(np.in1d(n.ravel(), idx).reshape(n.shape))
     return ix
 
-def read_sex(sfile):
-    #   1 NUMBER                 Running object number
-    #   2 FLUXERR_ISO            RMS error for isophotal flux                               [count]
-    #   3 FLUX_AUTO              Flux within a Kron-like elliptical aperture                [count]
-    #   4 FLUXERR_AUTO           RMS error for AUTO flux                                    [count]
-    #   5 X_IMAGE                Object position along x                                    [pixel]
-    #   6 Y_IMAGE                Object position along y                                    [pixel]
-    #   7 A_IMAGE                Profile RMS along major axis                               [pixel]
-    #   8 B_IMAGE                Profile RMS along minor axis                               [pixel]
-    #   9 FLAGS                  Extraction flags
-    # table = pd.read_csv(sfile, skiprows=9, sep=r"\s*", engine='python',
-    #                     names=['num', 'fluxerr_iso', 'flux_auto', 'fluxerr_auto', 'x', 'y', 'a', 'b', 'flag'])
 
-    #   1 FLUX_AUTO              Flux within a Kron-like elliptical aperture                [count]
-    #   2 FLUXERR_AUTO           RMS error for AUTO flux                                    [count]
-    #   3 THRESHOLD              Detection threshold above background                       [count]
-    #   4 X_IMAGE                Object position along x                                    [pixel]
-    #   5 Y_IMAGE                Object position along y                                    [pixel]
-    #   6 X_WORLD                Barycenter position along world x axis                     [deg]
-    #   7 Y_WORLD                Barycenter position along world y axis                     [deg]
-    #   8 B_IMAGE                Profile RMS along minor axis                               [pixel]
-    #   9 FLAGS                  Extraction flags
-    table = pd.read_csv(sfile, skiprows=9, sep=r"\s*", engine='python',
-                        names=['flux_auto', 'fluxerr_auto', 'thresh', 'x', 'y', 'x_wcs', 'y_wcs', 'b', 'flag'])
-
+def read_sex(sfile, skiplines=13):
+    #   1 FLUX_APER              Flux vector within fixed circular aperture(s)              [count]
+    #   2 FLUXERR_APER           RMS error vector for aperture flux(es)                     [count]
+    #   3 MAG_APER               Fixed aperture magnitude vector                            [mag]
+    #   4 MAGERR_APER            RMS error vector for fixed aperture mag.                   [mag]
+    #   5 THRESHOLD              Detection threshold above background                       [count]
+    #   6 X_IMAGE                Object position along x                                    [pixel]
+    #   7 Y_IMAGE                Object position along y                                    [pixel]
+    #   8 X_WORLD                Barycenter position along world x axis                     [deg]
+    #   9 Y_WORLD                Barycenter position along world y axis                     [deg]
+    #  10 B_IMAGE                Profile RMS along minor axis                               [pixel]
+    #  11 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
+    #  12 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
+    #  13 FLAGS                  Extraction flags
+    table = pd.read_csv(sfile, skiprows=skiplines, sep=r"\s*", engine='python',
+                        names=['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'thresh',
+                               'x', 'y', 'x_wcs', 'y_wcs', 'b', 'fhm_image', 'fwhm_world', 'flag'])
     return table
+
 
 def read_fits(ffile):
     with fits.open(ffile) as hdu:
@@ -147,20 +243,16 @@ def read_fits(ffile):
         fhdr = hdu[0].header
     return fdata, fhdr
 
-def read_2mass(tmfile):
+
+def read_2mass(tmfile, skiplines=55):
     # ra, dec, j_m, j_cmsig, j_msigcom, j_snr, h_m, h_cmsig, h_msigcom, h_snr, k_m, k_cmsig, k_msigcom, k_snr
     #   rd_flg, dist, angle, j_h, h_k, j_k
-    table = pd.read_csv(tmfile, skiprows=55, sep=r"\s*", engine='python',
+    table = pd.read_csv(tmfile, skiprows=skiplines, sep=r"\s*", engine='python',
                         names=['ra', 'dec', 'j_m', 'j_cmsig', 'j_msigcom', 'j_snr', 'h_m', 'h_cmsig', 'h_msigcom',
                                'h_snr', 'k_m', 'k_cmsig', 'k_msigcom', 'k_snr', 'rd_flg', 'dist', 'angle', 'j_h',
                                'h_k', 'j_k'])
     return table
 
-def read_usfile(usfile):
-    # flux_auto fluxerr_auto thresh x y x_wcs y_wcs b flag
-    table = pd.read_csv(usfile, skiprows=1, sep=r"\s*", engine='python',
-                        names=['flux_auto', 'fluxerr_auto', 'thresh', 'x', 'y', 'x_wcs', 'y_wcs', 'b', 'flag'])
-    return table
 
 if __name__ == '__main__':
     main()
