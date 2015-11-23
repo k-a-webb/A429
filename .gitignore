@@ -1,0 +1,15 @@
+.DS_Store
+2mass_L1544.tbl
+2mass_L1544_J.tbl
+L1544/.DS_Store
+L1544/.idea/
+L1544/.ipynb_checkpoints/
+L1544/2mass_L1544.tbl
+L1544/L1544_H_sub.fits
+L1544/L1544_J_sub.fits
+L1544/L1544_Ks_sub.fits
+L1544/plots/.DS_Store
+L1544/threshold 20/
+Papers/
+curve_of_growth.py
+keys/

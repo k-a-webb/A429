@@ -1,5 +1,12 @@
 __author__ = 'kawebb'
 
+"""
+Procedure:
+Determine the magnitude zeropoint of our CFHT observations by comparing bright
+unsaturated stars to the same stars in the 2mass catalog.
+Apply this zeropoint to all of the stars measured.
+"""
+
 import os
 import numpy as np
 import argparse
@@ -40,15 +47,21 @@ def main():
                         action='store',
                         default='J',
                         help='What colour band the image is in')
+    parser.add_argument("--zeropoint", '-zp',
+                        action='store',
+                        default=None,
+                        help='Zeropoint magnitude of our CFHT images')
     args = parser.parse_args()
 
     uslist = remove_satur(args.image, args.sexfile, args.usout, args.toplot)
-    tmstars = parse_2mass(args.tmass, uslist, args.tmout, args.band)
+
+    # Calculate zeropoint if not given
+    zeropoint = args.zeropoint
+    if args.zeropoint is None:
+        tmstars = parse_2mass(args.tmass, uslist, args.tmout, args.band)
+        zeropoint = compare_magnitudes(uslist, tmstars, args.toplot)
 
     plot_plots(args.image, uslist, tmstars, args.toplot)
-
-    compare_magnitudes(uslist, tmstars, args.toplot)
-
 
 def plot_plots(ffile, uslist, tmstars, toplot):
 
@@ -74,6 +87,8 @@ def plot_plots(ffile, uslist, tmstars, toplot):
         idx[i] = stars.index[0]
     us2mstars = uslist.loc[idx, :]
 
+    # weight = (err)**-2
+
     # Unsaturated stars and 2Mass stars
     plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
     plt.plot(uslist.x.values, uslist.y.values, 'x', label='Unsaturated stars')
@@ -96,45 +111,33 @@ def compare_magnitudes(uslist, tmstars, toplot=False):
     """ Comparing magnitudes from source extractor and 2mass """
 
     print '  Comparing colours of 2Mass stars and stars in the image'
-    tmcol = tmstars.j_m
-    uscol = uslist.mag_aper
+    tmmag = tmstars.j_m.values
+    sexmag = uslist.mag_aper.values
+    sexmagerr = uslist.magerr_aper.values
 
-    # create weighting function for calculating average
-    # at this stage this is a step function
-    # perhaps could later be logarithmic
+    wgt = (sexmagerr)**(-2)
 
-    highmag = np.int(np.max(tmcol))
-    lowmag = np.int(np.min(tmcol))
-    var = np.arange(highmag, lowmag, -1)
-
-    wgt = np.ones_like(tmcol)*highmag
-    for i, imag in enumerate(var):
-        for ii, mag in enumerate(tmcol):
-            if int(mag) == imag:
-                wgt[ii] = i
-
-    df = pd.DataFrame(data={'mag':tmcol, 'weight':wgt})
-    dfs = df.sort('mag')
-
+    # df = pd.DataFrame(data={'mag':sexmag, 'weight':wgt})
+    # dfs = df.sort('mag')
     # plt.plot(dfs.mag.values, dfs.weight.values)
     # plt.show()
 
-    offset = tmcol-uscol
+    offset = tmmag-sexmag
     avg = np.average(offset, weights=wgt)
     sig = np.var(offset)
 
+    print 'weighted average, unweighted average: {} {}'.format(np.average(sexmag, weights=wgt), np.mean(sexmag))
+    print 'weighted avg offset, unweighted avg offset, variance: {} {} {}'.format(avg, np.mean(offset), sig)
 
-    print np.average(uscol, weights=wgt), np.mean(uscol)
-    print avg, sig, np.mean(offset)
-
-    tmcols = np.sort(tmcol)
-    ones = np.ones_like(tmcols)
-
+    # tmcols = np.sort(tmcol)
+    # ones = np.ones_like(tmcols)
     # plt.scatter(tmcols, offset, alpha=0.2)
     # plt.plot(tmcols, ones*avg)
     # plt.fill_between(tmcols, ones*avg+sig, ones*avg-sig, alpha=0.2)
     # plt.xlabel('Magnitude') ; plt.ylabel('Magnitude difference')
     # plt.show()
+
+    return avg
 
 
 def parse_2mass(tmfile, uslist, tmout=None, band='J'):
@@ -180,7 +183,7 @@ def remove_satur(ffile, sfile, ofile=None, toplot=False):
     fdata, fhdr = read_fits(ffile)
     ix = detect_satur(fdata, stable['x'].values, stable['y'].values, stable['b'].values)
     us_stable = stable[ix]
-    us_stable.to_csv(ofile, index=False, sep=' ')
+    # us_stable.to_csv(ofile, index=False, sep=' ')
 
     if toplot:
         plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
