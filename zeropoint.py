@@ -21,19 +21,15 @@ def main():
         description='For a given image, and list of star positions, return list of stars which are not saturated')
     parser.add_argument("--image", '-img',
                         action="store",
-                        default='/Users/kawebb/Dropbox/A429/L1544/L1544_J_sub.fits',
+                        default='/Users/kawebb/A429/CB68/CB68_H_sub.fits',
                         help="Fits image of star field")
     parser.add_argument("--sexfile", '-sf',
                         action='store',
-                        default='/Users/kawebb/Dropbox/A429/L1544/L1544_J_sex_2m.txt',
+                        default='/Users/kawebb/A429/CB68/CB68_H_sex_2m.txt',
                         help='List of star positions as output by sextractor for 2mass comparison.')
-    parser.add_argument("--usout", '-us',
-                        action='store',
-                        default=None,
-                        help='List of unsaturated stars in image, will be created if not specified')
     parser.add_argument("--tmass", '-tm',
                         action='store',
-                        default='/Users/kawebb/Dropbox/A429/2mass_L1544.tbl',
+                        default='/Users/kawebb/A429/CB68/2mass_CB68.tbl',
                         help='File of 2Mass stars in region of interest')
     parser.add_argument("--tmout",
                         action='store',
@@ -49,7 +45,7 @@ def main():
                         help='What colour band the image is in')
     args = parser.parse_args()
 
-    uslist = remove_satur(args.image, args.sexfile, args.usout, args.toplot)
+    uslist = remove_satur(args.image, args.sexfile, args.toplot)
     tmstars = parse_2mass(args.tmass, uslist, args.tmout, args.band)
     offset = compare_magnitudes(uslist, tmstars, args.toplot)
 
@@ -57,7 +53,6 @@ def main():
 
 
 def plot_plots(ffile, uslist, tmstars, toplot):
-
     if not toplot:
         return
 
@@ -100,7 +95,7 @@ def compare_magnitudes(uslist, tmstars, toplot=False):
     sexmag = uslist.mag_aper.values
     sexmagerr = uslist.magerr_aper.values
 
-    wgt = (sexmagerr)**(-2)
+    wgt = (sexmagerr) ** (-2)
 
     # Weighting as function of magnitude
     # df = pd.DataFrame(data={'mag':sexmag, 'weight':wgt})
@@ -108,12 +103,18 @@ def compare_magnitudes(uslist, tmstars, toplot=False):
     # plt.plot(dfs.mag.values, dfs.weight.values)
     # plt.show()
 
-    offset = tmmag-sexmag
-    wavg = np.average(offset, weights=wgt)
-    sig = np.var(offset)
+    try:
+        offset = tmmag - sexmag
+        wavg = np.average(offset, weights=wgt)
+        sig = np.var(offset)
+    except:
+        offset = 0. * tmmag
+        wavg = 0.
+        sig = 0.
 
-    print 'weighted avg offset, unweighted avg offset, variance: {} {} {}'.format(wavg, np.mean(offset), sig)
-    print 'weighted average, unweighted average: {} {}'.format(np.average(sexmag, weights=wgt), np.mean(sexmag))
+    # print 'weighted avg offset, unweighted avg offset, variance: {} {} {}'.format(wavg, np.mean(offset), sig)
+    # print 'weighted average, unweighted average: {} {}'.format(np.average(sexmag, weights=wgt), np.mean(sexmag))
+    print '{} {} {} {} {}'.format(wavg, np.mean(offset), sig, np.average(sexmag, weights=wgt), np.mean(sexmag))
 
     return wavg
 
@@ -126,6 +127,7 @@ def parse_2mass(tmfile, uslist, tmout=None, band='J'):
 
     if tmout is None:
         tmout = tmfile.split('.')[0] + '_{}.tbl'.format(band)
+        print 'tmout = {}'.format(tmout)
     if os.path.exists(tmout):
         print '  2Mass list has already been parsed for this image: {}'.format(tmout)
         return read_2mass(tmout, 1)
@@ -136,7 +138,7 @@ def parse_2mass(tmfile, uslist, tmout=None, band='J'):
     tmlist = read_2mass(tmfile, skiplines=55)
 
     idx = np.zeros(len(uslist))
-    for ii,i in enumerate(uslist.index):
+    for ii, i in enumerate(uslist.index):
         sig = 0.005
         stars = []
         while len(stars) == 0:
@@ -146,7 +148,7 @@ def parse_2mass(tmfile, uslist, tmout=None, band='J'):
         if len(stars) > 0:
             idx[ii] = stars.index[0]
         else:
-            print 'No 2Mass star found at {},{}'.format(uslist.x_wcs[i],uslist.y_wcs[i])
+            print 'No 2Mass star found at {},{}'.format(uslist.x_wcs[i], uslist.y_wcs[i])
             idx[ii] = np.nan()
 
     tmstars = tmlist.loc[idx, :]
@@ -155,21 +157,14 @@ def parse_2mass(tmfile, uslist, tmout=None, band='J'):
     return tmstars
 
 
-def remove_satur(ffile, sfile, ofile=None, toplot=False):
+def remove_satur(ffile, sfile, toplot=False):
     """
     Detect saturated stars in the image, and remove them from the list returned by source extractor
     In our images, saturated stars have low (0) values at the center rather than a very high value
     and are therefore not identified by source extractor automatticaly.
     """
 
-    if ofile is None:
-        ofile = sfile.strip('.txt') + '_unsat.txt'
-
-    if os.path.exists(ofile):
-        print '  List of unsaturated stars already exists: {}'.format(ofile)
-        return read_sex(ofile, skiplines=1)
-
-    print "  Creating list of unsaturated stars for image {}, writing to {}".format(ffile, ofile)
+    print "  Creating list of unsaturated stars for image {}".format(ffile)
 
     stable = read_sex(sfile, skiplines=13)
     fdata, fhdr = read_fits(ffile)
@@ -177,7 +172,6 @@ def remove_satur(ffile, sfile, ofile=None, toplot=False):
     # Iterate through stars
     ix = detect_satur(fdata, stable['x'].values, stable['y'].values, stable['b'].values)
     us_stable = stable[ix]
-    # us_stable.to_csv(ofile, index=False, sep=' ')
 
     if toplot:
         plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
