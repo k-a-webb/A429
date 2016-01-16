@@ -1,0 +1,121 @@
+radius wavgoffset meanoffset varoffset wavg mean
+
+J
+5 -0.224322736501 -1.92466166391 2.43480379314 15.3219383127 17.1270674873
+10 0.179379651379 -1.52299256459 2.38617946759 14.9039948251 16.725398388
+15 0.290081322035 -1.34201304321 2.33404424246 14.8333632535 16.5444188666
+18 0.311606990365 -1.2370899622 2.30823545455 14.8210822154 16.4394957856
+20 0.354119294749 -1.16587614109 2.2999335868 14.8178171125 16.3682819644
+22 0.338059676728 -1.09397708457 2.27669582762 14.8167712929 16.2963829079
+24 0.372935073635 -1.02402229061 2.46335860471 14.8163275948 16.226428114
+28 0.378907210527 -0.878465937705 2.39828033397 14.8173832506 16.0808717611
+30 0.373275763254 -0.806090162142 2.39751348126 14.814476558 16.0084959855
+32 0.391683617269 -0.734185516573 2.35394064497 14.8105447099 15.9365913399
+34 0.390203734199 -0.66539187416 2.54331234275 14.8071135946 15.8677976975
+36 0.41364382481 -0.595011831048 2.52630248175 14.7982139798 15.7974176544
+38 0.400450384762 -0.523093554938 2.29068617312 14.789277834 15.7254993783
+40 0.406831598122 -0.454817541941 2.25757937831 14.7775550541 15.6572233653
+STOP_J
+
+Ks
+5 1.51917308279 -0.432720564601 2.57898218326 13.588835443 15.6950661627
+10 1.9062932728 -0.0390581764996 2.51273796653 13.182877898 15.3014037746
+15 2.05890968274 0.142231532389 2.4635227877 13.1181129646 15.1201140657
+18 2.07903393124 0.246638577571 2.4308114396 13.1063615497 15.0157070205
+20 2.09900222329 0.317154620427 2.41257227483 13.1056093562 14.9451909777
+22 0.0 0.0 0.0 13.108174624 14.8741803101
+24 0.0 0.0 0.0 13.1088377942 14.8027373921
+28 2.15711213106 0.600103383379 2.57337919128 13.1167613846 14.6622422147
+30 2.1091724059 0.671227172764 2.50744558423 13.1224836487 14.5911184253
+32 0.0 0.0 0.0 13.124519129 14.5204792916
+34 0.0 0.0 0.0 13.1264978717 14.4533272529
+36 2.12389717345 0.878098844012 2.69316908377 13.128168268 14.3842467541
+38 2.09846598789 0.946061404807 2.64502939506 13.12652243 14.3162841933
+40 0.0 0.0 0.0 13.1229862358 14.2493996053 
+STOP_Ks
+
+H
+5 1.09305910604 -0.872379151234 2.53842591997 14.0264597762 16.1060412371
+10 1.48000063789 -0.466232808335 2.47584839649 13.6385560074 15.6998948943
+15 0.0 0.0 0.0 13.5847699491 15.5166021911
+18 1.56764018855 -0.177810516113 2.37154068275 13.5755375757 15.411472602
+20 0.0 0.0 0.0 13.5756208146 15.3405468257
+22 0.0 0.0 0.0 13.577408685 15.2719105365
+24 0.0 0.0 0.0 13.5807606251 15.2027280443
+28 1.65110262333 0.174829121811 2.77411902952 13.5867394657 15.0588329641
+30 1.65162424102 0.246147692893 2.74769760394 13.5882868039 14.987514393
+32 0.0 0.0 0.0 13.5888655883 14.9167475457
+34 0.0 0.0 0.0 13.5866538749 14.8466801959
+36 0.0 0.0 0.0 13.5838072973 14.7828284626
+38 1.63766411461 0.519024684136 3.1113311824 13.5762377423 14.7146374018
+40 0.0 0.0 0.0 13.5703931574 14.6502464968
+STOP_H
+
+
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r30.txt -PHOT_APERTURES 30
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r32.txt -PHOT_APERTURES 32
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r34.txt -PHOT_APERTURES 34
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r36.txt -PHOT_APERTURES 36
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r38.txt -PHOT_APERTURES 38
+sex L429_J_sub.fits -CATALOG_NAME ../curve_of_growths/L429_J_sex_2m_r40.txt -PHOT_APERTURES 40
+
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r30.txt -PHOT_APERTURES 30
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r32.txt -PHOT_APERTURES 32
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r34.txt -PHOT_APERTURES 34
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r36.txt -PHOT_APERTURES 36
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r38.txt -PHOT_APERTURES 38
+sex L429_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/L429_Ks_sex_2m_r40.txt -PHOT_APERTURES 40
+
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r30.txt -PHOT_APERTURES 30
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r32.txt -PHOT_APERTURES 32
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r34.txt -PHOT_APERTURES 34
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r36.txt -PHOT_APERTURES 36
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r38.txt -PHOT_APERTURES 38
+sex L429_H_sub.fits -CATALOG_NAME ../curve_of_growths/L429_H_sex_2m_r40.txt -PHOT_APERTURES 40
+
+
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r5.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r10.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r15.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r18.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r20.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r22.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r24.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r28.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r30.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r32.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r34.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r36.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r38.txt -tm L429/2mass_L429.tbl
+python zeropoint.py -img L429/L429_J_sub.fits -sf L429/L429_J_sex_2m_r40.txt -tm L429/2mass_L429.tbl 
+
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r5.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r10.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r15.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r18.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r20.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r22.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r24.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r28.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r30.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r32.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r34.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r36.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r38.txt -tm L429/2mass_L429.tbl -b Ks
+python zeropoint.py -img L429/L429_Ks_sub.fits -sf L429/L429_Ks_sex_2m_r40.txt -tm L429/2mass_L429.tbl -b Ks 
+
+
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r5.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r10.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r15.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r18.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r20.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r22.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r24.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r28.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r30.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r32.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r34.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r36.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r38.txt -tm L429/2mass_L429.tbl -b H
+python zeropoint.py -img L429/L429_H_sub.fits -sf L429/L429_H_sex_2m_r40.txt -tm L429/2mass_L429.tbl -b H 

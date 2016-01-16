@@ -1,0 +1,120 @@
+radius wavgoffset meanoffset varoffset wavg mean
+
+J
+5 -0.399009962467 -2.27953962975 2.60609395751 15.8127273398 17.9366612582
+10 -0.0786490933505 -2.01079240241 2.57743930583 15.3989808895 17.6679140308
+15 0.0411629507665 -1.93212703971 2.54496756493 15.2907984719 17.5892486681
+18 0.104024999834 -1.90401901491 3.13534555494 15.2585140762 17.5611406433
+20 0.152113305908 -1.88197143575 3.13658874942 15.2437511946 17.5390930642
+22 0.204760203605 -1.87279886078 4.25830691423 15.2327553233 17.5299204892
+24 0.285156263747 -1.85001328531 4.28497787257 15.2250338025 17.5071349137
+28 0.399997981737 -1.81641769141 5.31196262182 15.2157773097 17.4735393198
+30 0.459612638754 -1.81024947227 7.08342401838 15.2083725614 17.4673711007
+32 0.425746214367 -1.79114216787 7.55127546432 15.2106787309 17.4482637963
+34 0.44862843375 -1.78417889931 9.4006768876 15.2084962556 17.4413005277
+36 0.407211399604 -1.76332962808 9.84308470929 15.2061014081 17.4204512565
+38 0.420878397998 -1.74210576311 10.4641979818 15.2051359116 17.3992273915
+40 0.432899073241 -1.72031135031 10.9340603427 15.2065404682 17.3774329787
+STOP_J
+
+Ks
+5 0.891882163232 -1.15715404455 2.50971619475 14.2239866141 16.8304296405
+10 1.22070463491 -0.894269118796 2.47793502058 13.7860305234 16.5675447147
+15 1.34539518856 -0.808863696757 2.45041506591 13.677971574 16.4821392927
+18 1.43281386256 -0.770364546698 2.47415441366 13.6356412443 16.4436401426
+20 1.52885128838 -0.746271961704 2.44497290847 13.6136993032 16.4195475576
+22 1.65470405031 -0.722478878468 2.54454446981 13.6103570907 16.3957544744
+24 1.83095762841 -0.698652237202 2.58175856307 13.5928089077 16.3719278331
+28 2.02867458261 -0.658270144588 3.23530353567 13.5912219989 16.3315457405
+30 2.09644769776 -0.647897342712 4.62257236615 13.5853095481 16.3211729386
+32 1.96070742533 -0.630572088707 5.19772909373 13.5866440877 16.3038476846
+34 1.90392669588 -0.620226084408 6.69042443349 13.5917142864 16.2935016803
+36 1.98177911689 -0.616627315358 8.52268970972 13.5845243798 16.2899029113
+40 2.1160430612 -0.599599404064 11.9266519812 13.5887680294 16.272875
+STOP_Ks
+
+H
+5 0.612491703474 -0.97300039852 2.29861868285 14.7117993006 16.6469168517
+10 0.913911936333 -0.708490990606 2.25977729571 14.3481776831 16.3824074438
+15 1.04881584657 -0.630397096499 2.27549108944 14.2580061489 16.3043135497
+18 1.14383338507 -0.597690492457 2.26581341633 14.2305919983 16.2716069456
+20 1.14670197325 -0.58901518645 3.29042218948 14.2165368946 16.2629316396
+22 1.21688967201 -0.592321833191 5.2735078179 14.2055530167 16.2662382864
+24 1.38049523843 -0.584593751779 6.44926862737 14.1984202026 16.258510205
+28 1.42652770736 -0.558873099915 7.44278964908 14.1884191843 16.2327895531
+30 1.49993464611 -0.607229931682 13.1961491359 14.183638623 16.2811463849
+32 1.54445196673 -0.610014916026 15.1924373037 14.1766951147 16.2839313692
+34 1.50465471465 -0.613017022488 17.3433985838 14.1774216941 16.2869334757
+36 1.45072916368 -0.660812026758 22.8993509834 14.1720209306 16.3347284799
+38 1.48915985925 -0.68431498719 26.992483136 14.1710574169 16.3582314404
+40 1.46921012214 -0.685719769428 29.0836465858 14.1640558145 16.3596362226
+STOP_H
+
+
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r30.txt -PHOT_APERTURES 30
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r32.txt -PHOT_APERTURES 32
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r34.txt -PHOT_APERTURES 34
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r36.txt -PHOT_APERTURES 36
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r38.txt -PHOT_APERTURES 38
+sex CB68_J_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_J_sex_2m_r40.txt -PHOT_APERTURES 40
+
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r30.txt -PHOT_APERTURES 30
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r32.txt -PHOT_APERTURES 32
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r34.txt -PHOT_APERTURES 34
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r36.txt -PHOT_APERTURES 36
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r38.txt -PHOT_APERTURES 38
+sex CB68_Ks_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_Ks_sex_2m_r40.txt -PHOT_APERTURES 40
+
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r30.txt -PHOT_APERTURES 30
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r32.txt -PHOT_APERTURES 32
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r34.txt -PHOT_APERTURES 34
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r36.txt -PHOT_APERTURES 36
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r38.txt -PHOT_APERTURES 38
+sex CB68_H_sub.fits -CATALOG_NAME ../curve_of_growths/CB68_H_sex_2m_r40.txt -PHOT_APERTURES 40
+
+
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r5.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r10.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r15.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r18.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r20.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r22.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r24.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r28.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r30.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r32.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r34.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r36.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r38.txt -tm CB68/2mass_CB68.tbl
+python zeropoint.py -img CB68/CB68_J_sub.fits -sf CB68/CB68_J_sex_2m_r40.txt -tm CB68/2mass_CB68.tbl 
+
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r5.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r10.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r15.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r18.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r20.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r22.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r24.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r28.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r30.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r32.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r34.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r36.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r38.txt -tm CB68/2mass_CB68.tbl -b Ks
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -sf CB68/CB68_Ks_sex_2m_r40.txt -tm CB68/2mass_CB68.tbl -b Ks 
+
+
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r5.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r10.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r15.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r18.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r20.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r22.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r24.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r28.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r30.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r32.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r34.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r36.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r38.txt -tm CB68/2mass_CB68.tbl -b H
+python zeropoint.py -img CB68/CB68_H_sub.fits -sf CB68/CB68_H_sex_2m_r40.txt -tm CB68/2mass_CB68.tbl -b H 
