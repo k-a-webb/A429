@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 from astropy.io import fits
+import match_phot
 
 TEMP_FILE = '/Users/kawebb/a429/temp.txt'
 
@@ -127,10 +128,9 @@ def parse_2mass(twomass_file, star_list):
     2Mass catalog, and save the cropped catalog list to a file
     """
 
-    assert os.path.exists(twomass_file), '2Mass file does not exist: {}'.format(twomass_file)
     print '  Identifying 2Mass catalog stars with Unsaturated stars in CFHT image'
 
-    twomass_list = read_2mass(twomass_file, skiplines=55)
+    twomass_list = read_2mass(twomass_file)
 
     idx_stars = []
     idx_2mass = []
@@ -159,83 +159,26 @@ def remove_satur(ffile, sfile, toplot=False):
     and are therefore not identified by source extractor automatticaly.
     """
 
-    # print "  Creating list of unsaturated stars for image {}".format(ffile)
-
-    stable = read_sex(sfile, skiplines=13)
-    fdata, fhdr = read_fits(ffile)
+    stable = match_phot.read_sex(sfile)
+    fdata, fhdr = match_phot.read_fits(ffile)
 
     # Iterate through stars
-    ix = detect_satur(fdata, stable['x'].values, stable['y'].values, stable['b'].values)
-    us_stable = stable[ix]
+    ix = match_phot.detect_satur(fdata, stable['x_pix'].values, stable['y_pix'].values, stable['kron_radius'].values)
+    unsat_stable = stable[ix]
 
     if toplot:
         plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
-        s_stable = stable[np.invert(ix)]
-        plt.plot(s_stable.x.values, s_stable.y.values, 'x')
+        sat_stable = unsat_stable[np.invert(ix)]
+        plt.plot(sat_stable.x.values, sat_stable.y.values, 'x')
         plt.title('Saturated stars')
         plt.show()
 
-    return us_stable
-
-
-def detect_satur(fdata, x, y, r, nz=1.):
-    """
-    Identify saturation by looking for at least 'nz' zeros in a radius 'r' around the measured coordinate
-    """
-
-    idx = []
-    n = np.arange(len(x))
-
-    for i in n:
-        zeros = []
-        rr = int(r[i]) + 1
-        # r**2 = (xx - x0)**2 + (yy - y0)**2
-        for xx in range(int(x[i]) - rr, int(x[i]) + rr):
-            yy_p = np.sqrt(rr ** 2 - (xx - int(x[i])) ** 2) + int(y[i])
-            yy_m = -np.sqrt(rr ** 2 - (xx - int(x[i])) ** 2) + int(y[i])
-            for yy in range(int(yy_m), int(yy_p)):
-                if fdata[yy, xx] == 0.:
-                    zeros.append(1.)
-        if len(zeros) >= nz:
-            idx.append(i)
-
-    ix = np.invert(np.in1d(n.ravel(), idx).reshape(n.shape))
-    np.any(ix) is False, '  WARNING: No unsaturated stars detected'
-    return ix
-
-
-def read_sex(sfile, skiplines=13):
-    #   1 FLUX_APER              Flux vector within fixed circular aperture(s)              [count]
-    #   2 FLUXERR_APER           RMS error vector for aperture flux(es)                     [count]
-    #   3 MAG_APER               Fixed aperture magnitude vector                            [mag]
-    #   4 MAGERR_APER            RMS error vector for fixed aperture mag.                   [mag]
-    #   5 THRESHOLD              Detection threshold above background                       [count]
-    #   6 X_IMAGE                Object position along x                                    [pixel]
-    #   7 Y_IMAGE                Object position along y                                    [pixel]
-    #   8 X_WORLD                Barycenter position along world x axis                     [deg]
-    #   9 Y_WORLD                Barycenter position along world y axis                     [deg]
-    #  10 B_IMAGE                Profile RMS along minor axis                               [pixel]
-    #  11 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
-    #  12 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
-    #  13 FLAGS                  Extraction flags
-    table = pd.read_csv(sfile, skiprows=skiplines, sep=r"\s*", engine='python',
-                        names=['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'thresh',
-                               'x', 'y', 'x_wcs', 'y_wcs', 'b', 'fwhm_image', 'fwhm_world', 'flag'])
-    return table
-
-
-def read_fits(ffile):
-    with fits.open(ffile) as hdu:
-        # hdu.info()
-        # Filename: L1544_J_sub.fits
-        # No.    Name         Type      Cards   Dimensions   Format
-        # 0    PRIMARY     PrimaryHDU      54   (5475, 5493)   float32
-        fdata = hdu[0].data
-        fhdr = hdu[0].header
-    return fdata, fhdr
+    return unsat_stable
 
 
 def read_2mass(tmfile, skiplines=55):
+
+    assert os.path.exists(tmfile), 'ERROR: 2Mass file {} does not exist'.format(tmfile)
     # ra, dec, j_m, j_cmsig, j_msigcom, j_snr, h_m, h_cmsig, h_msigcom, h_snr, k_m, k_cmsig, k_msigcom, k_snr
     #   rd_flg, dist, angle, j_h, h_k, j_k
     table = pd.read_csv(tmfile, skiprows=skiplines, sep=r"\s*", engine='python',
