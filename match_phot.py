@@ -7,8 +7,16 @@ star, averaging curves, and fitting an optimal curve.
 
 Example use:
 python match_phot.py -img CB68/CB68_J_sub.fits -sf_f CB68/CB68_J_sex_2m_r{}.txt -aps 5 10 15
+python match_phot.py -img CB68/CB68_Ks_sub.fits -sf_f CB68/curve_of_growths/CB68_Ks_sex_2m_r{}.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 --outfile CB68/CB68_Ks_mags.txt --outimage CB68/CB68_Ks_mags.png
+python match_phot.py -img CB68/CB68_J_sub.fits -sf_f CB68/curve_of_growths/CB68_J_sex_2m_r{}.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 --outfile CB68/CB68_J_mags.txt --outimage CB68/CB68_J_mags.png
+python match_phot.py -img CB68/CB68_H_sub.fits -sf_f CB68/curve_of_growths/CB68_H_sex_2m_r{}.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 --outfile CB68/CB68_H_mags.txt --outimage CB68/CB68_H_mags.png
+
+python match_phot.py -img CB68/CB68_Ks_sub.fits -sf_f CB68/curve_of_growths/CB68_Ks_sex_2m_r{}_t7.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 42 44 46 48 50 --outfile CB68/CB68_Ks_mags_t7.txt --outimage CB68/CB68_Ks_mags_t7.png
+python match_phot.py -img CB68/CB68_J_sub.fits -sf_f CB68/curve_of_growths/CB68_J_sex_2m_r{}_t7.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 42 44 46 48 50 --outfile CB68/CB68_J_mags_t7.txt --outimage CB68/CB68_J_mags_t7.png
+python match_phot.py -img CB68/CB68_H_sub.fits -sf_f CB68/curve_of_growths/CB68_H_sex_2m_r{}_t7.txt -aps 5 10 15 18 20 22 24 28 30 32 34 36 38 40 42 44 46 48 50 --outfile CB68/CB68_H_mags_t7.txt --outimage CB68/CB68_H_mags_t7.png
 """
 
+import os
 import numpy as np
 import argparse
 import pandas as pd
@@ -16,7 +24,6 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from scipy.spatial import KDTree
 import zeropoint
-import matplotlib
 
 
 def main():
@@ -36,7 +43,7 @@ def main():
                         action='store',
                         default=None,
                         help='Source extractor files for J,H, or Ks bands.')
-    parser.add_argument("--outfile",
+    parser.add_argument("--outfile", '-of',
                         action='store',
                         default=None,
                         help='Outfile of matched magnitudes.')
@@ -52,6 +59,14 @@ def main():
                         action='store',
                         default=False,
                         help='Wheter or not to plot figures.')
+    parser.add_argument("--max_sep", '-msep',
+                        action='store',
+                        default=0.0001,
+                        help='Maximum separation for nearest neighbour search.')
+    parser.add_argument("--r_fed",
+                        action='store',
+                        default=30,
+                        help='Feducial radius.')
 
     args = parser.parse_args()
 
@@ -73,27 +88,65 @@ def main():
     else:
         sexfiles = args.sexfiles
 
-    phottable = match_phot(args.image, sexfiles, args.apertures, args.toplot)
+    names = ['x_wcs', 'y_wcs']
+    for ap in args.apertures:
+        names.append('mag_aper_{}'.format(ap))
+        names.append('magerr_aper_{}'.format(ap))
+
+    # if not os.path.exists(args.outfile):
+    phottable = match_phot(args.image, sexfiles, args.apertures, args.toplot, float(args.max_sep))
 
     if args.outfile is None:
         outfile = 'test.txt'
     else:
         outfile = args.outfile
-    phottable.to_csv(outfile, index=False)
 
-    # curve_of_growths(phottable, args.apertures, 30)
+    phottable[names].to_csv(outfile, index=False)
+    # else:
+    #     phottable = pd.read_csv(args.outfile, skiprows=1, names=names)
+
+    curve_of_growths(phottable, np.array(args.apertures, dtype=np.int), int(args.r_fed), args.outimage)
 
 
-def curve_of_growths(phottable, apertures, ap_feducial, outimage=None):
+def curve_of_growths(phottable, apertures, r_feducial, outimage=None):
+    """
+    Plot curve of growth, relative to a given feducial radius
+    """
     magtable = np.ones((len(apertures), len(phottable)))
+    magerrtable = np.ones((len(apertures), len(phottable)))
+
     for i, ap in enumerate(apertures):
         magtable[i, :] = phottable['mag_aper_{}'.format(ap)].values
+        magerrtable[i, :] = phottable['magerr_aper_{}'.format(ap)].values
 
-    plt.plot(apertures, magtable[:, :])
+    iap = np.argmin(abs(r_feducial - np.array(apertures)))
+    ap_fed = apertures[iap]
+    print 'Given feducial radius {}, closest aperture in data set {}'.format(r_feducial, ap_fed)
+
+    # magtable_rel = magtable*0.
+    average = apertures * 0.
+
+    for i in range(len(apertures)):
+        # magtable_rel[i, :] = np.subtract(magtable[i, :], magtable[iap, :])
+        average[i] = np.average(magtable[i, :], weights=(magerrtable[i, :]) ** (-2))
+        # average[i] = np.average(magtable_rel[i, :], weights=(magerrtable[i, :])**(-2))
+
+    average_rel = average * 0.
+    for i in range(len(apertures)):
+        average_rel[i] = average[i] - average[iap]
+
+    ax = plt.gca()
+    ax.plot(apertures, average_rel, '-b')
+    ax.plot(apertures, apertures * 0., '-k')
+    ax.invert_yaxis()
+    ax.set_xlabel('apertures')
+    ax.set_ylabel(r'$\Delta$ mag relative to aperture {}'.format(ap_fed))
+    if outimage is not None:
+        plt.savefig(outimage)
     plt.show()
 
 
-def match_phot(image, sexfiles, apertures, toplot=False):
+def match_phot(image, sexfiles, apertures, toplot=False, max_sep=0.0001):
     """
     Read photometry files for several apertures, remove saturated stars, and match coordinate lists
     """
@@ -105,8 +158,7 @@ def match_phot(image, sexfiles, apertures, toplot=False):
     # returns index of unsaturated stars as True, saturated as False
     unsat_idxs = zeropoint.detect_satur(imgdata, sextable['x'].values, sextable['y'].values, sextable['b'].values)
     sextable = sextable[unsat_idxs]  # splice phot. table according to index array
-    sextable.reset_index(inplace=True,
-                         drop=True)  # drop index column (inherent to pandas dataframe) as out of order now
+    sextable.reset_index(inplace=True, drop=True)  # drop index column (inherent to pandas dataframe) as out of order
     # drop unneeded data from photometry table
     sextable.drop(['flux_aper', 'fluxerr_aper', 'thresh', 'fwhm_image', 'fwhm_world', 'flag', 'x', 'y', 'b'], axis=1,
                   inplace=True)
@@ -122,7 +174,7 @@ def match_phot(image, sexfiles, apertures, toplot=False):
                                             phottable['b'].values)
         unsat_stars = phottable[unsat_idxs]
         # match the two tables by their coordinates (nearest neighbour), return combined table
-        sextable = match_tables(sextable, unsat_stars, max_sep=0.0001, aper=apertures[i], toplot=toplot)
+        sextable = match_tables(sextable, unsat_stars, max_sep, aper=apertures[i], toplot=toplot)
 
 
     # remove additional saturated stars marked with 99.
@@ -149,8 +201,8 @@ def match_tables(reftable, newtable, max_sep, aper, toplot=False):
     assert len(spliced_reftable) == len(spliced_newtable), 'Matched tables not the same length'
 
     # sort both tables by the x axis
-    sorted_reftable = spliced_reftable.sort(['x_wcs'])
-    sorted_newtable = spliced_newtable.sort(['x_wcs'])
+    sorted_reftable = spliced_reftable.sort_values('x_wcs')
+    sorted_newtable = spliced_newtable.sort_values('x_wcs')
 
     if toplot:
         # plot to make sure matching the same points
@@ -178,24 +230,26 @@ def query_separation_tree(xref, yref, x, y, max_sep=0.0001):
     # establish 'tree' of coordinates
     tree = KDTree(zip(x.ravel(), y.ravel()))
 
-    refidxs = np.ones(len(xref), dtype=bool)  # splice pandas Dataframe with True/False array
-    idxs = np.ones(len(x), dtype=bool)  # By default False, when matched set to True
-
-    idx_list = []
-    dups = []
+    refidxs = np.zeros(len(xref), dtype=bool)  # splice pandas Dataframe with True/False array
+    idxs = np.zeros(len(x), dtype=bool)  # By default False, when matched set to True
 
     for i in range(len(xref)):
         d, idx = tree.query((xref[i], yref[i]), distance_upper_bound=max_sep)
         if (d != np.inf):  # ignore results with no matches within max_sep
-            if idx in idx_list:
-                dups.append(idx)  # check if this index has already been matched
+            if (refidxs[i] is True) | (idxs[idx] is True):
+                print '  WARNING: duplicates found for refidxs[{}]'.format(i)
 
             refidxs[i] = True
             idxs[idx] = True
-            idx_list.append(idx)  # record indexes to check if duplicate match
 
-    if (len(dups) > 0):
-        print '  WARNING: duplicates found'
+        else:
+            print 'no match index {}'.format(i)
+
+    if np.count_nonzero(refidxs) != np.count_nonzero(idxs):
+        print 'Number of indexes dont match: ref {}, new {}'.format(np.count_nonzero(refidxs), np.count_nonzero(idxs))
+        # print '  index where ref False: {}'.format([index for index,value in enumerate(refidxs) if value < 1])
+        # print '  index where new False: {}'.format([index for index,value in enumerate(idxs) if value < 1])
+        raise Exception
 
     return refidxs, idxs
 
