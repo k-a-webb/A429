@@ -24,15 +24,15 @@ def main():
         description='For a given image, and list of star positions, return list of stars which are not saturated')
     parser.add_argument("--image", '-img',
                         action="store",
-                        default='/Users/kawebb/a429/CB68/CB68_H_sub.fits',
+                        default=None,
                         help="Fits image of star field")
     parser.add_argument("--sexfile", '-sf',
                         action='store',
-                        default='/Users/kawebb/a429/CB68/CB68_H_sex_2m.txt',
+                        default=None,
                         help='List of star positions as output by sextractor for 2mass comparison.')
     parser.add_argument("--tmass", '-tm',
                         action='store',
-                        default='/Users/kawebb/a429/CB68/2mass_CB68.tbl',
+                        default=None,
                         help='File of 2Mass stars in region of interest')
     parser.add_argument("--toplot", '-plt',
                         action='store',
@@ -44,8 +44,26 @@ def main():
                         help='Aperture of photometry')
     args = parser.parse_args()
 
+    if args.image is None:
+        raise Exception, 'ERROR: No image file given'
+    if args.sexfile is None:
+        raise Exception, 'ERROR: No souce extractor file given'
+    if args.tmass is None:
+        raise Exception, 'ERROR: No 2Mass file given'
+
+    clouds = ['CB68', 'L429', 'L1521E', 'L1544', 'L1552']
+    centers = np.array([[2610.6899, 2868.1778], [2496.3232, 2158.1909], [2532.6025, 2753.7333], [2345.069, 2855.932],
+                        [2710.337, 2593.2019]])  # in pixels
+    sizes = np.array([[1382.2207, 1227.3661], [1869.7259, 2345.7605], [1880.5105, 1777.3177], [1788.7782, 1570.9142],
+                      [1639.7134, 177.3117]])  # in pixels
+    for i, cloud in enumerate(clouds):
+        if cloud in args.image:
+            center = centers[i]
+            size = sizes[i]
+
     unsat_list = remove_satur(args.image, args.sexfile, args.toplot)  # create list of unsatured stars identified by sex
-    twomass_list, star_list = parse_2mass(args.tmass, unsat_list)
+    bkg_list = remove_region(unsat_list, center, size)  # Remove stars reddened by cloud from zeropoint calculation
+    twomass_list, star_list = parse_2mass(args.tmass, bkg_list)
     offset = compare_magnitudes(star_list, twomass_list, args.toplot, args.aperture, TEMP_FILE)
 
     # plot_plots(args.image, uslist, tmstars, args.toplot)
@@ -140,9 +158,9 @@ def parse_2mass(twomass_file, star_list):
         if sep_min < max_separation:
             idx_stars.append(i)
             idx_2mass.append(imin)
-        # else:
-        #     print '  {},{}  {},{} {}'.format(star_list.x_wcs[i], star_list.y_wcs[i], twomass_list['ra'][i_min],
-        #                                      twomass_list['dec'][i_min], sep_min)
+            # else:
+            #     print '  {},{}  {},{} {}'.format(star_list.x_wcs[i], star_list.y_wcs[i], twomass_list['ra'][i_min],
+            #                                      twomass_list['dec'][i_min], sep_min)
 
     return twomass_list.loc[idx_2mass, :], star_list.loc[idx_stars, :]
 
@@ -150,6 +168,21 @@ def parse_2mass(twomass_file, star_list):
 def query_separation(table, ra, dec):
     sep = np.sqrt((ra - table.ra.values) ** 2 + (dec - table.dec.values) ** 2)
     return np.argmin(sep), np.min(sep)
+
+
+def remove_region(starlist, center, size):
+    """
+    For a given centerpoint and size of a rectangular region (in pixels), remove stars in the region from the list
+    """
+
+    in_x = starlist.query('{} < x_pix < {}'.format(center[0]-size[0]/2,center[0]+size[0]/2))
+    in_xy = in_x.query('{} < y_pix < {}'.format(center[1]-size[1]/2,center[1]+size[1]/2))
+
+    starlist = starlist.drop(starlist.index[in_xy.index.values])
+    starlist.reset_index(inplace=True, drop=True)  # drop index column (inherent to pandas dataframe) as out of order
+
+    return starlist
+
 
 
 def remove_satur(ffile, sfile, toplot=False):
@@ -177,7 +210,6 @@ def remove_satur(ffile, sfile, toplot=False):
 
 
 def read_2mass(tmfile, skiplines=55):
-
     assert os.path.exists(tmfile), 'ERROR: 2Mass file {} does not exist'.format(tmfile)
     # ra, dec, j_m, j_cmsig, j_msigcom, j_snr, h_m, h_cmsig, h_msigcom, h_snr, k_m, k_cmsig, k_msigcom, k_snr
     #   rd_flg, dist, angle, j_h, h_k, j_k
