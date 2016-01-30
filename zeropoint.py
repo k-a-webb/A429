@@ -9,6 +9,11 @@ Apply this zeropoint to all of the stars measured.
 python zeropoint.py -img CB68/CB68_J_sub.fits -ph CB68/CB68_J_mags_t20.txt -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
 python zeropoint.py -img CB68/CB68_H_sub.fits -ph CB68/CB68_H_mags_t20.txt -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
 python zeropoint.py -img CB68/CB68_Ks_sub.fits -ph CB68/CB68_Ks_mags_t20.txt -ap 24 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
+
+sex -c phot_t3.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t3_ap30.txt -APERTURES 30 -MAG_ZEROPOINT 30-0.192943311392
+sex -c phot_t3.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t3_ap24.txt -APERTURES 24 -MAG_ZEROPOINT 30+0.605746118244
+sex -c phot_t3.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t3_ap40.txt -APERTURES 40 -MAG_ZEROPOINT 30+0.471278827929
+
 """
 
 import os
@@ -18,7 +23,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 from astropy.io import fits
-import match_phot
+import phot_curves
 
 TEMP_FILE = '/Users/kawebb/a429/temp.txt'
 
@@ -76,8 +81,9 @@ def main():
     if args.photfile is not None:
         unsat_list = pd.read_csv(args.photfile)
     else:
-        unsat_list = remove_satur(args.image, args.sexfile,
-                                  args.toplot)  # create list of unsatured stars identified by sex
+        imgdata, imghead = phot_curves.read_fits(args.image)
+        phottable = phot_curves.read_sex(args.sexfile)
+        unsat_list = remove_satur(imgdata, phottable, args.toplot)  # create list of unsatured stars identified by sex
 
     bkg_list = remove_region(unsat_list, center, size)  # Remove stars reddened by cloud from zeropoint calculation
     twomass_list, star_list = parse_2mass(args.tmass, bkg_list)
@@ -156,18 +162,15 @@ def remove_region(starlist, center, size):
     return starlist
 
 
-def remove_satur(ffile, sfile, toplot=False):
+def remove_satur(fdata, stable, toplot=False):
     """
     Detect saturated stars in the image, and remove them from the list returned by source extractor
     In our images, saturated stars have low (0) values at the center rather than a very high value
     and are therefore not identified by source extractor automatticaly.
     """
 
-    stable = match_phot.read_sex(sfile)
-    fdata, fhdr = match_phot.read_fits(ffile)
-
     # Iterate through stars
-    ix = match_phot.detect_satur(fdata, stable['x_pix'].values, stable['y_pix'].values, stable['kron_radius'].values)
+    ix = phot_curves.detect_satur(fdata, stable['x_pix'].values, stable['y_pix'].values, stable['kron_radius'].values)
     unsat_stable = stable[ix]
 
     if toplot:
