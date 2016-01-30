@@ -8,6 +8,10 @@ sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t7/CB68_J_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t7.txt --outimage CB68/CB68_J_mags_t7.png
 python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t7/CB68_H_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t7.txt --outimage CB68/CB68_H_mags_t7.png
 python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t7/CB68_Ks_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t7.txt --outimage CB68/CB68_Ks_mags_t7.png
+
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outimage CB68/CB68_J_mags_t20.png
+python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t20.txt --outimage CB68/CB68_H_mags_t20.png
+python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t20.txt --outimage CB68/CB68_Ks_mags_t20.png
 """
 
 import numpy as np
@@ -16,6 +20,8 @@ import argparse
 import os
 import pandas as pd
 from astropy.io import fits
+from matplotlib.colors import LogNorm
+from scipy import optimize
 
 
 def main():
@@ -60,9 +66,11 @@ def main():
     if args.sexfile is None:
         raise Exception, 'ERROR: No source extractor files given'
 
+    imgdata, imghdr = read_fits(args.image)  # Access fits data to read locations of saturated stars
+
     if not os.path.exists(args.outfile):
-        imgdata, imghdr = read_fits(args.image)  # Access fits data to read locations of saturated stars
-        phottable, names = read_sex(args.sexfile, aperture=args.apertures, names=names)  # Import source extractor file
+
+        phottable, names = read_sex(args.sexfile, aperture=args.apertures)  # Import source extractor file
         unsat_idxs = detect_satur(imgdata, phottable['x_pix'].values, phottable['y_pix'].values,
                                   phottable['kron_radius'].values)
         phottable = phottable[unsat_idxs]  # splice phot. table according to index array
@@ -79,6 +87,12 @@ def main():
         phottable = pd.read_csv(args.outfile)
 
     curve_of_growths(phottable, np.array(args.apertures, dtype=np.int), int(args.r_fed), args.outimage)
+
+    if args.toplot:
+        plt.imshow(imgdata, norm=LogNorm())
+        plt.scatter(phottable['x_pix'].values, phottable['y_pix'].values, marker='x', color='k')
+        # plt.colorbar()
+        plt.show()
 
 
 def curve_of_growths(phottable, apertures, r_feducial, outimage=None):
@@ -104,24 +118,22 @@ def curve_of_growths(phottable, apertures, r_feducial, outimage=None):
     for i in range(len(apertures)):
         weight = (magerrtable[i, :]) ** (-2)
         average[i] = np.average(magtable[i, :], weights=weight)
-        yerr[i] = np.sqrt(np.sum(1 / weight))  # sqrt(sum(1/w))
+        yerr[i] = np.sqrt(1/np.sum(weight))  # sqrt(1/sum(w))
 
     average_rel = average * 0.
     for i in range(len(apertures)):
         average_rel[i] = average[i] - average[iap]
 
-    # ax = plt.gca()
-    # ax.plot(apertures, magtable[:,:])
-    # ax.invert_yaxis()
-    # ax.set_xlabel('apertures')
-    # ax.set_ylabel(r'$\Delta$ mag')
-    # if outimage is not None:
-    #     plt.savefig('all_mags.png')
-    # plt.show()
+    expo = lambda x, amp, alpha: amp*np.exp(-1*x*alpha)
+    popt, pcov = optimize.curve_fit(expo, apertures, average_rel, p0=[1.5, .2], sigma=yerr, absolute_sigma=True)
+
+
+    fit = expo(apertures, popt[0], popt[1])
 
     ax = plt.gca()
-    ax.plot(apertures, average_rel, '-b')
-    # ax.errorbar(apertures, average_rel, yerr=yerr)
+    ax.plot(apertures, average_rel, '-b', label=r'$\Delta mag$')
+    ax.plot(apertures, fit, '-r', label=r'$\Delta mag$ fit')
+    ax.errorbar(apertures, average_rel, yerr=yerr)
     ax.plot(apertures, apertures * 0., '-k')
     ax.invert_yaxis()
     ax.set_xlabel('apertures')
@@ -161,13 +173,13 @@ def read_sex(sfile, skiplines=12, aperture=None):
     assert os.path.exists(sfile), 'ERROR: Source extractor file {} does not exist'.format(sfile)
 
     names = []
-    for ap in args.apertures:
+    for ap in aperture:
         names.append('flux_aper_{}'.format(ap))
-    for ap in args.apertures:
+    for ap in aperture:
         names.append('fluxerr_aper_{}'.format(ap))
-    for ap in args.apertures:
+    for ap in aperture:
         names.append('mag_aper_{}'.format(ap))
-    for ap in args.apertures:
+    for ap in aperture:
         names.append('magerr_aper_{}'.format(ap))
     names = np.concatenate(
         (names, ['kron_radius', 'x_pix', 'y_pix', 'x_wcs', 'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']))
