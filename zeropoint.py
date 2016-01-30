@@ -5,6 +5,10 @@ Procedure:
 Determine the magnitude zeropoint of our CFHT observations by comparing bright
 unsaturated stars to the same stars in the 2mass catalog.
 Apply this zeropoint to all of the stars measured.
+
+python zeropoint.py -img CB68/CB68_J_sub.fits -ph CB68/CB68_J_mags_t20.txt -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
+python zeropoint.py -img CB68/CB68_H_sub.fits -ph CB68/CB68_H_mags_t20.txt -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
+python zeropoint.py -img CB68/CB68_Ks_sub.fits -ph CB68/CB68_Ks_mags_t20.txt -ap 24 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
 """
 
 import os
@@ -34,20 +38,28 @@ def main():
                         action='store',
                         default=None,
                         help='File of 2Mass stars in region of interest')
-    parser.add_argument("--toplot", '-plt',
+    parser.add_argument("--outfile", '-out',
                         action='store',
-                        default=False,
+                        default=None,
                         help='Whether or not to plot saturated stars over top of the image')
     parser.add_argument("--aperture", '-ap',
                         action='store',
                         default=None,
                         help='Aperture of photometry')
+    parser.add_argument("--photfile", '-ph',
+                        action='store',
+                        default=None,
+                        help='File of photometry')
     args = parser.parse_args()
 
     if args.image is None:
         raise Exception, 'ERROR: No image file given'
     if args.sexfile is None:
-        raise Exception, 'ERROR: No souce extractor file given'
+        print 'Warning: No souce extractor file given'
+    if args.outfile is None:
+        print 'Warning: No out file file given'
+    if args.photfile is None and args.sexfile is None:
+        raise Exception, 'ERROR: No souce extractor file or photometry file given'
     if args.tmass is None:
         raise Exception, 'ERROR: No 2Mass file given'
 
@@ -61,83 +73,43 @@ def main():
             center = centers[i]
             size = sizes[i]
 
-    unsat_list = remove_satur(args.image, args.sexfile, args.toplot)  # create list of unsatured stars identified by sex
+    if args.photfile is not None:
+        unsat_list = pd.read_csv(args.photfile)
+    else:
+        unsat_list = remove_satur(args.image, args.sexfile,
+                                  args.toplot)  # create list of unsatured stars identified by sex
+
     bkg_list = remove_region(unsat_list, center, size)  # Remove stars reddened by cloud from zeropoint calculation
     twomass_list, star_list = parse_2mass(args.tmass, bkg_list)
-    offset = compare_magnitudes(star_list, twomass_list, args.toplot, args.aperture, TEMP_FILE)
-
-    # plot_plots(args.image, uslist, tmstars, args.toplot)
+    offset = compare_magnitudes(star_list, twomass_list, args.aperture, args.outfile)
 
 
-def plot_plots(ffile, uslist, tmstars, toplot):
-    if not toplot:
-        return
-
-    fdata, fhdr = read_fits(ffile)
-
-    # Unsaturated stars
-    plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
-    plt.plot(uslist.x.values, uslist.y.values, 'x')
-    plt.title('Unsaturated stars')
-    plt.show()
-
-    idx = np.zeros(len(tmstars))
-    for i in tmstars.index:
-        sig = 0.005
-        stars = []
-        while len(stars) == 0:
-            ras = uslist.query('({} < x_wcs) & (x_wcs < {})'.format(tmstars.ra[i] - sig, tmstars.ra[i] + sig))
-            stars = ras.query('({} < y_wcs) & (y_wcs < {})'.format(tmstars.dec[i] - sig, tmstars.dec[i] + sig))
-            sig += 0.001
-        idx[i] = stars.index[0]
-    us2mstars = uslist.loc[idx, :]
-
-    # Unsaturated stars and 2Mass stars
-    plt.imshow(fdata, origin='lower', norm=matplotlib.colors.LogNorm())
-    plt.plot(uslist.x.values, uslist.y.values, 'x', label='Unsaturated stars')
-    plt.plot(us2mstars.x.values, us2mstars.y.values, 'o', label='2Mass stars')
-    plt.legend()
-    plt.title('Saturated stars')
-    plt.show()
-
-
-def compare_magnitudes(uslist, tmstars, toplot=False, aperture=None, outfile=None):
+def compare_magnitudes(uslist, tmstars, aperture=None, outfile=None):
     """
     Comparing magnitudes from source extractor and 2mass.
     Calculate the magnitude offset between the two to find correction to zeropoint in source extractor
     """
 
-    print '  Comparing colours of 2Mass stars and stars in the image'
     tmmag = tmstars.j_m.values
-    sexmag = uslist.mag_aper.values
-    sexmagerr = uslist.magerr_aper.values
+    sexmag = uslist['mag_aper_{}'.format(aperture)].values
+    sexmagerr = uslist['magerr_aper_{}'.format(aperture)].values
 
     wgt = (sexmagerr) ** (-2)
 
-    # Weighting as function of magnitude
-    # df = pd.DataFrame(data={'mag':sexmag, 'weight':wgt})
-    # dfs = df.sort('mag')
-    # plt.plot(dfs.mag.values, dfs.weight.values)
-    # plt.show()
+    offset = tmmag - sexmag
+    wavg_off = np.average(offset, weights=wgt)
+    var_off = np.var(offset)
+    sig_off = np.sqrt(np.sum(wgt))
 
-    try:
-        offset = tmmag - sexmag
-        wavg = np.average(offset, weights=wgt)
-        sig = np.var(offset)
-    except:
-        offset = 0. * tmmag
-        wavg = 0.
-        sig = 0.
+    wavg_mag = np.average(sexmag, weights=wgt)
+    var_mag = np.var(sexmag)
 
-    print '{} {} {} {} {} {}'.format(aperture, wavg, np.mean(offset), sig, np.average(sexmag, weights=wgt),
-                                     np.mean(sexmag))
-
+    print '{} {} {} {} {} {}'.format(aperture, wavg_off, var_off, sig_off, wavg_mag, var_mag)
     if outfile is not None:
         with open(outfile, 'a') as of:
-            of.write('{} {} {} {} {} {}\n'.format(aperture, wavg, np.mean(offset), sig, np.average(sexmag, weights=wgt),
-                                                  np.mean(sexmag)))
+            of.write('{} {} {} {} {} {}\n'.format(aperture, wavg_off, var_off, sig_off, wavg_mag, var_mag))
 
-    return wavg
+    return wavg_off
 
 
 def parse_2mass(twomass_file, star_list):
@@ -175,14 +147,13 @@ def remove_region(starlist, center, size):
     For a given centerpoint and size of a rectangular region (in pixels), remove stars in the region from the list
     """
 
-    in_x = starlist.query('{} < x_pix < {}'.format(center[0]-size[0]/2,center[0]+size[0]/2))
-    in_xy = in_x.query('{} < y_pix < {}'.format(center[1]-size[1]/2,center[1]+size[1]/2))
+    in_x = starlist.query('{} < x_pix < {}'.format(center[0] - size[0] / 2, center[0] + size[0] / 2))
+    in_xy = in_x.query('{} < y_pix < {}'.format(center[1] - size[1] / 2, center[1] + size[1] / 2))
 
     starlist = starlist.drop(starlist.index[in_xy.index.values])
     starlist.reset_index(inplace=True, drop=True)  # drop index column (inherent to pandas dataframe) as out of order
 
     return starlist
-
 
 
 def remove_satur(ffile, sfile, toplot=False):
