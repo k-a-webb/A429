@@ -10,9 +10,9 @@ python zeropoint.py -img CB68/CB68_J_sub.fits -ph CB68/CB68_J_mags_t20.txt -ap 3
 python zeropoint.py -img CB68/CB68_H_sub.fits -ph CB68/CB68_H_mags_t20.txt -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
 python zeropoint.py -img CB68/CB68_Ks_sub.fits -ph CB68/CB68_Ks_mags_t20.txt -ap 24 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt
 
-sex -c phot_t3.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t3_ap30.txt -APERTURES 30 -MAG_ZEROPOINT 30-0.192943311392
-sex -c phot_t3.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t3_ap24.txt -APERTURES 24 -MAG_ZEROPOINT 30+0.605746118244
-sex -c phot_t3.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t3_ap40.txt -APERTURES 40 -MAG_ZEROPOINT 30+0.471278827929
+sex -c phot_t3.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t3_ap30.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 30-0.192943311392
+sex -c phot_t3.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t3_ap24.txt -PHOT_APERTURES 24 -MAG_ZEROPOINT 30+0.605746118244
+sex -c phot_t3.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t3_ap40.txt -PHOT_APERTURES 40 -MAG_ZEROPOINT 30+0.471278827929
 
 """
 
@@ -85,8 +85,14 @@ def main():
         phottable = phot_curves.read_sex(args.sexfile)
         unsat_list = remove_satur(imgdata, phottable, args.toplot)  # create list of unsatured stars identified by sex
 
-    bkg_list = remove_region(unsat_list, center, size)  # Remove stars reddened by cloud from zeropoint calculation
-    twomass_list, star_list = parse_2mass(args.tmass, bkg_list)
+    unreddened_list = remove_region(unsat_list, center, size)  # Remove stars reddened from zeropoint calculation
+
+    starpsf_idx = phot_curves.half_light(unreddened_list['mag_aper_{}'.format(args.aperture)].values,
+                                         unreddened_list['flux_radius'].values)
+    starpsf_list = unreddened_list[starpsf_idx]
+    starpsf_list.reset_index()
+
+    twomass_list, star_list = parse_2mass(args.tmass, starpsf_list)
     offset = compare_magnitudes(star_list, twomass_list, args.aperture, args.outfile)
 
 
@@ -113,7 +119,8 @@ def compare_magnitudes(uslist, tmstars, aperture=None, outfile=None):
     print '{} {} {} {} {} {}'.format(aperture, wavg_off, var_off, sig_off, wavg_mag, var_mag)
     if outfile is not None:
         with open(outfile, 'a') as of:
-            of.write('{} {} {} {} {} {}\n'.format(aperture, wavg_off, var_off, sig_off, wavg_mag, var_mag))
+            of.write(
+                '& {} & {} & {} & {} & {} & {} \\\\ \n'.format(aperture, wavg_off, var_off, sig_off, wavg_mag, var_mag))
 
     return wavg_off
 
