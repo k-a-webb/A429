@@ -1,0 +1,110 @@
+
+James:
+	- BE spheres
+	- Herschel imagry
+	- nicest code
+	- B68 -> CB68 ?
+
+
+
+
+Initial conditions for star formation - regions prior to actual event
+—————————————————————————————————————
+
+study the processes of the earliest phases of star formation
+ - evolution of the cloud as it collapses
+ - stars form in MCCs from gravitational instability and collapse 
+	- collapse process constrained by density and temperature of the cloud material
+ - why ? efficiency of the process, extrapolate to galactic scales
+
+Molecular clouds
+ - filamentary structure, turbulence, magnetic fields
+ - opaque to optical light
+	- 25% Av > 10, 1% with dust emission
+ - those within 500 pc, 10-10 K (bergin)
+ - mostly H2, some CO, NH3, dust (time solids)
+ - H2 undetectable
+	- weak rotational transitions in mid-IR (atmos. opaque)
+	- no permanent dipole (therefore don’t radiate when cold) (launhardt
+	- cold temperatures inhibit collisional excitations (Lada) e.g. 10 K, (burton 92 in launhardt)
+  - detect structure through H2 tracers/surrogates
+	- heavier asymmetric molecules, much less abundant
+		- collisional excited rotational transitions
+		- freeze out at high densities and cold temperatures, attach to dust grains
+	- NH3, CO molecular lines
+		- kinematics and chemical composition of gas
+		- issues because optical depth and self absorption (launhardt)
+	- dust emission, extinction
+		- 1% of mass of ISM in solar neighbourhood (launhardt)
+		- extinction, attenuation of background starlight
+			- preferable for column density measures
+			- not good for densest cores (N_H > 1E22 cm-2) (launhardt)
+		- scattering of ambient starlight
+		- thermal emission
+
+Cores
+ - cores 0.1 pc scale, 0.5-5 Msun, 10^4-10^5 cm^-3, 0.1-0.3 km.s, 8-12 K
+ - local density enhancements, corresponding to minimum in gravitational potential of the MC (andre)
+	- maximimum in column density maps
+	- Bonner-Ebert spheres, isothermal density structures (internal thermal, external pressure from parent cloud) (endre refs wn)
+ - sites of low mass star formation, or systems (andre, refs wn)
+ - protostellar (starless and grav bound), and star containing
+	- study starless cores for initial conditions of low mass stellar births
+ - identified by sub-mm/mm emission or optical/IR absorption (andre)
+ -non-thermal motions (e.g. turbulence) << thermal motions (andre)
+
+We expect the dust to be coupled to the molecules such that we can infer the molecular density and temperatures from the dust density and temperatures. 
+	- ratio should be constant (lombardi html)
+
+Dust extinction
+ - NIR extinction mapping of background starlight
+	- independent of temperature
+	- depends on reddening law r_v^H,K to convert A_k to A_v (v all frequencies?)
+	- correlation between A_v and gas column density
+ - mapping dust absorption against Galactic mid-IR background emission
+	- depends on fluctuations in emission, and uncertain relation of absorbing opacity and H col density
+ - uncertainties in dust propagate
+
+ - extinction of background starlight in IR
+	- light preferentially scattered/absorped by wavelength, see reddening effect
+	- depends on the density of the dust grains (size, temperature ?)
+
+
+Dust emission
+ - mm/submm dust continuum emission
+	- high mass sensitivity (andre)
+	- linear dependence on temperature and dust emissivity K_v, both which vary with core depth
+	- peaks of SED in mid IR (?)
+	- complicated by los superpositions
+ - better for densest cores where do not get good resolution from bkg stars
+	
+
+density 
+ - projected column density 
+	- overestimates by about pi/2 on average
+
+	
+At optical wavelengths, the light (photons) passing through a core is absorbed completely by the dust. To get a sense of the column density, we look at the MCC in longer NIR/FIR wavelengths where light from stars behind the cloud can pass through. The effect of light passing through a cloud of dust is to preferentially scatter higher frequencies (i.e. blue light) away from the initial propagation direction such that we see the lower frequency light (red). This effect is called extinction, and is dependent on the density of the dust the light passes through. By looking at the relative changes in extinction across the MCC, we build ‘extinction maps’, which tell us about the variance in the column densities.
+
+
+dust temperature
+ - determined by balance between heating by ISRF and cooling by thermal radiation in FIR
+	- ISRF heating changes with core depth, centre coolest
+	- flat or decreasing temperature gradients ?
+ - don’t know a lot about optical properties of dust
+	- dust emissivity as function of density
+	- cold cover in ice, ‘freeze out’ ??
+
+Herschel
+ - measured peak of thermal dust spectral energy distribution
+	- still need opacities
+ - continuum emission at high sensitivity and wide scales
+	- my include 6 bids, resolution linearly dependent on wavelength
+ - distinguish protostellar and wrestler by point like 70um emission (andre refs wn)
+	- MCs within 500 pc has sensitivity to detect ‘first hydrostatic cores’ ~0.01-0.1 L_sun
+ - preferentially detects prestellar in densest filaments (andre), density > 7E21 cm-2
+
+
+Near-Infrared Color Excess (Nice)
+ - compares colours with H,K,(H-K) with nearby unobscured field
+
