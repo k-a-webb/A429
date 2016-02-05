@@ -5,13 +5,11 @@ sex -c phot_t7.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t7/CB68_J_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t7.txt --outimage CB68/CB68_J_mags_t7.png
-python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t7/CB68_H_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t7.txt --outimage CB68/CB68_H_mags_t7.png
-python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t7/CB68_Ks_sex_t7.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t7.txt --outimage CB68/CB68_Ks_mags_t7.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outcog CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
+python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t20.txt --outcog CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
+python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t20.txt --outcog CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
 
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outimage CB68/CB68_J_mags_t20.png
-python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t20.txt --outimage CB68/CB68_H_mags_t20.png
-python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t20.txt --outimage CB68/CB68_Ks_mags_t20.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outcog CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
 """
 
 import numpy as np
@@ -21,7 +19,7 @@ import os
 import pandas as pd
 from astropy.io import fits
 from matplotlib.colors import LogNorm
-from scipy import optimize
+from scipy import optimize, stats
 
 
 def main():
@@ -45,10 +43,18 @@ def main():
                         action='store',
                         default=None,
                         help='Outfile of matched magnitudes.')
-    parser.add_argument("--outimage",
+    parser.add_argument("--outcog",
                         action='store',
                         default=None,
                         help='Output plot of curve of growths.')
+    parser.add_argument("--outhlr",
+                        action='store',
+                        default=None,
+                        help='Output plot of half right radius.')
+    parser.add_argument("--outmags",
+                        action='store',
+                        default=None,
+                        help='Output plot of mag aper and auto difference.')
     parser.add_argument("--toplot",
                         action='store',
                         default=False,
@@ -85,22 +91,92 @@ def main():
     else:
         phottable = pd.read_csv(args.outfile)
 
-    curve_of_growths(phottable, np.array(args.apertures, dtype=np.int), args.r_fed, args.outimage)
+    # curve_of_growths(phottable, np.array(args.apertures, dtype=np.int), args.r_fed, args.outcog)
+    # aper_auto_check(phottable, args.apertures, args.outmags)
 
-    # if args.toplot:
-    #     plt.imshow(imgdata, norm=LogNorm())
-    #     plt.scatter(phottable['x_pix'].values, phottable['y_pix'].values, marker='x', color='k')
-    #     # plt.colorbar()
-    #     plt.show()
+    if args.r_fed is None:
+        args.r_fed = np.mean(phottable['fwhm_image'].values) * 10.
+    iap = np.argmin(abs(int(args.r_fed) - np.array(args.apertures, dtype=np.int)))
+    aper = args.apertures[iap]
+    half_light(phottable['mag_aper_{}'.format(aper)].values, phottable['flux_radius'].values, args.outhlr)
 
     if args.toplot:
-
-        x = phottable['mag_aper_{}'.format(args.r_fed)].values
-        y = phottable['flux_radius'].values
-        plt.scatter(x, y, marker='.', alpha=0.3)
-        plt.xlabel('mag at aperture {}'.format(args.r_fed))
-        plt.ylabel('half light radius')
+        plt.imshow(imgdata, norm=LogNorm())
+        plt.scatter(phottable['x_pix'].values, phottable['y_pix'].values, marker='x', color='k')
+        # plt.colorbar()
         plt.show()
+
+
+
+
+
+def aper_auto_check(phottable, apertures, outfig=None):
+    """
+    Plot difference between mag_auto and mag_aper for the apertures
+    """
+
+    mag_auto = phottable['mag_auto'].values
+    magerr_auto = phottable['magerr_auto'].values
+    mag_auto_avg = np.average(mag_auto, weights=magerr_auto ** (-2))
+    magerr_auto_avg = np.sqrt(1 / np.sum(magerr_auto ** (-2)))
+
+    mag_aper_avg = np.zeros(len(apertures))
+    magerr_aper_avg = np.zeros(len(apertures))
+    for i, ap in enumerate(apertures):
+        mag_aper = phottable['mag_aper_{}'.format(ap)].values
+        magerr_aper = phottable['magerr_aper_{}'.format(ap)].values
+        mag_aper_avg[i] = np.average(mag_aper, weights=magerr_aper ** (-2))
+        magerr_aper_avg[i] = np.sqrt(1 / np.sum(magerr_aper ** (-2)))
+
+    diff = np.subtract(mag_auto_avg, mag_aper_avg)
+    differr = np.sqrt(magerr_auto_avg ** 2 + magerr_aper_avg ** 2)
+
+    plt.plot(apertures, diff)
+    plt.errorbar(apertures, diff, yerr=differr)
+    plt.xlabel('apertures')
+    plt.ylabel(r'$mag_{auto} - mag_{aper}$')
+    if outfig is not None:
+        plt.savefig(outfig)
+    plt.show()
+
+
+def half_light(x, y, outfig=None):
+    """
+    Plot flux radius as a function of magnitude
+    """
+
+    linear = lambda x, m, b: m * x + b
+
+    weight = x ** (-1)
+    p, cov = optimize.curve_fit(linear, x, y, p0=[1., np.min(y)], sigma=weight, absolute_sigma=True)
+    perr = np.sqrt(np.diag(cov))
+    fit = p[0] * x + p[1]
+
+    idx = (y <= fit + np.std(y))*(fit - np.std(y) <= y)
+    yy = y[np.where(idx)]
+    xx = x[np.where(idx)]
+
+    weight = xx ** (-1)
+    p, cov = optimize.curve_fit(linear, xx, yy, p0=[1., np.min(yy)], sigma=weight, absolute_sigma=True)
+    perr = np.sqrt(np.diag(cov))
+    fit = p[0] * xx + p[1]
+    fiterr = 3*np.std(yy)
+
+    plt.scatter(x, y, marker='.', alpha=0.3, color='g')
+    plt.plot(xx, fit, '-k', label="linear fit")
+    plt.plot(xx, fit - fiterr, '-b', label="linear fit")
+    plt.plot(xx, fit + fiterr, '-b', label="linear fit")
+    plt.xlabel('mag')
+    plt.ylabel('half light radius')
+    plt.ylim(0, 5)
+    if outfig is not None:
+        plt.savefig(outfig)
+    plt.show()
+
+    idx_bool =  np.zeros_like(x, dtype=bool)
+    idx_bool[np.where(idx)] = True
+
+    return idx_bool
 
 
 def curve_of_growths(phottable, apertures, r_feducial, outimage=None):
@@ -135,7 +211,7 @@ def curve_of_growths(phottable, apertures, r_feducial, outimage=None):
     for i in range(len(apertures)):
         average_rel[i] = average[i] - average[iap]
 
-    expo = lambda x, amp, alpha,b: amp * np.exp(-1 * x * alpha) + b
+    expo = lambda x, amp, alpha, b: amp * np.exp(-1 * x * alpha) + b
     popt, pcov = optimize.curve_fit(expo, apertures, average_rel, p0=[1.5, .2, 0.], sigma=yerr, absolute_sigma=True)
 
     fit = expo(apertures, popt[0], popt[1], popt[2])
@@ -180,7 +256,7 @@ def detect_satur(fdata, x, y, r, nz=1.):
     return ix
 
 
-def read_sex(sfile, skiplines=13, aperture=None):
+def read_sex(sfile, skiplines=15, aperture=None):
     assert os.path.exists(sfile), 'ERROR: Source extractor file {} does not exist'.format(sfile)
 
     names = []
@@ -192,22 +268,24 @@ def read_sex(sfile, skiplines=13, aperture=None):
         names.append('mag_aper_{}'.format(ap))
     for ap in aperture:
         names.append('magerr_aper_{}'.format(ap))
-    names = np.concatenate(
-        (names, ['kron_radius', 'flux_radius', 'x_pix', 'y_pix', 'x_wcs', 'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']))
+    names = np.concatenate((names, ['mag_auto', 'magerr_auto', 'kron_radius', 'flux_radius', 'x_pix', 'y_pix', 'x_wcs',
+                                    'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']))
 
     #   1 FLUX_APER              Flux vector within fixed circular aperture(s)              [count]
     #  24 FLUXERR_APER           RMS error vector for aperture flux(es)                     [count]
     #  47 MAG_APER               Fixed aperture magnitude vector                            [mag]
     #  70 MAGERR_APER            RMS error vector for fixed aperture mag.                   [mag]
-    #  93 KRON_RADIUS            Kron apertures in units of A or B
-    #  94 FLUX_RADIUS            Fraction-of-light radii                                    [pixel]
-    #  95 X_IMAGE                Object position along x                                    [pixel]
-    #  96 Y_IMAGE                Object position along y                                    [pixel]
-    #  97 X_WORLD                Barycenter position along world x axis                     [deg]
-    #  98 Y_WORLD                Barycenter position along world y axis                     [deg]
-    #  99 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
-    # 100 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
-    # 101 FLAGS                  Extraction flags
+    #  93 MAG_AUTO               Kron-like elliptical aperture magnitude                    [mag]
+    #  94 MAGERR_AUTO            RMS error for AUTO magnitude                               [mag]
+    #  95 KRON_RADIUS            Kron apertures in units of A or B
+    #  96 FLUX_RADIUS            Fraction-of-light radii                                    [pixel]
+    #  97 X_IMAGE                Object position along x                                    [pixel]
+    #  98 Y_IMAGE                Object position along y                                    [pixel]
+    #  99 X_WORLD                Barycenter position along world x axis                     [deg]
+    # 100 Y_WORLD                Barycenter position along world y axis                     [deg]
+    # 101 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
+    # 102 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
+    # 103 FLAGS                  Extraction flags
 
     # read in file as pandas dataframe
     table = pd.read_csv(sfile, skiprows=skiplines, sep=r"\s*", engine='python', names=names)
