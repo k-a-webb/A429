@@ -22,45 +22,26 @@ def main():
 
         i_1p = np.argmin(np.abs(magerrs - 0.01))
         mag_1p = mags[i_1p]
-        #
-        # plt.scatter(mags, magerrs, marker='.')
-        # plt.plot(mags, mags*0.+0.01, '-k')
-        # plt.scatter(mag_1p, magerrs[i_1p], marker='o', color='r', label='mag={}'.format(mag_1p))
-        # plt.xlabel('mag')
-        # plt.ylabel('mag err')
-        # plt.ylim(0.,1.)
-        # plt.legend()
-        # plt.show()
 
-        # bins = np.unique(mags)
-        #
-        # count = Counter(mags)
-        # n = []
-        # for i in bins:
-        #     n.append(count[i])
-
-
-
-        bins = np.arange(np.min(mags), np.max(mags), 0.01)
-        mags = np.digitize(mags, bins)
-
-        plt.plot(mags)
+        plt.scatter(mags, magerrs, marker='.')
+        plt.plot(mags, mags * 0. + 0.01, '-k')
+        plt.scatter(mag_1p, magerrs[i_1p], marker='o', color='r', label='mag={}'.format(mag_1p))
+        plt.xlabel('mag')
+        plt.ylabel('mag err')
+        plt.ylim(0., .3)
+        plt.legend()
         plt.show()
 
         bins, n = np.unique(mags, return_counts=True)
+        nbins = len(bins) / 100
 
         pow = lambda x, A, alpha: A * x ** alpha
 
+        n, bins, patches = plt.hist(mags, bins=nbins)
         idx = np.argmax(n)
-        print np.max(n)
 
-        # popt, pcov = curve_fit(pow, bins[:idx], n[:idx], p0=[1., 1.])
-        # print popt
-
-        bbins = np.unique(np.array(mags, dtype=np.int))
-        # plt.hist(mags, len(bbins)*10)
-        plt.scatter(bins, n, color='r')
-        # plt.plot(bins[:idx], pow(bins[:idx], popt[0], popt[1]))
+        popt, pcov = curve_fit(pow, bins[:idx], n[:idx], p0=[1., 1.])
+        plt.plot(bins[:idx], pow(bins[:idx], popt[0], popt[1]), '-r', lw=3)
         plt.xlabel('mag')
         plt.ylabel('occurance')
         plt.show()
