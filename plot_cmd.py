@@ -3,7 +3,11 @@ __author__ = 'kawebb'
 """
 Match stars from J,H,Ks bands, plot colour magnitude diagrams
 
-python plot_cmd.py -is CB68/CB68_J_sub.fits CB68/CB68_H_sub.fits CB68/CB68_Ks_sub.fits -sfs phot_t3/CB68_J_sex_t3_ap30.txt phot_t3/CB68_H_sex_t3_ap40.txt phot_t3/CB68_Ks_sex_t3_ap24.txt -ofile phot_t3/CB68_allmags.txt -ofig CB68/CB68_cmd.png
+python plot_cmd.py -is CB68/CB68_J_sub.fits CB68/CB68_Ks_sub.fits CB68/CB68_H_sub.fits -sfs phot_t3/CB68_J_sex_t3_ap30.txt phot_t3/CB68_Ks_sex_t3_ap24.txt phot_t3/CB68_H_sex_t3_ap30.txt -ofile phot_t3/CB68_allmags.txt -ofig CB68/CB68_cmd.png
+python plot_cmd.py -is L429/L429_J_sub.fits L429/L429_Ks_sub.fits L429/L429_H_sub.fits -sfs phot_t3/L429_J_sex_t3_ap24.txt phot_t3/L429_Ks_sex_t3_ap24.txt phot_t3/L429_H_sex_t3_ap20.txt -ofile phot_t3/L429_allmags.txt -ofig L429/L429_cmd.png
+python plot_cmd.py -is L1521E/L1521E_J_sub.fits L1521E/L1521E_Ks_sub.fits L1521E/L1521E_H_sub.fits -sfs phot_t3/L1521E_J_sex_t3_ap30.txt phot_t3/L1521E_Ks_sex_t3_ap28.txt phot_t3/L1521E_H_sex_t3_ap26.txt -ofile phot_t3/L1521E_allmags.txt -ofig L1521E/L1521E_cmd.png
+python plot_cmd.py -is L1544/L1544_J_sub.fits L1544/L1544_Ks_sub.fits L1544/L1544_H_sub.fits -sfs phot_t3/L1544_J_sex_t3_ap28.txt phot_t3/L1544_Ks_sex_t3_ap28.txt phot_t3/L1544_H_sex_t3_ap28.txt -ofile phot_t3/L1544_allmags.txt -ofig L1544/L1544_cmd.png
+
 """
 
 import argparse
@@ -56,44 +60,58 @@ def main():
     if args.outfig is None:
         print 'Warning: No output figure specified'
 
-    sexfile_j, sexfile_h, sexfile_ks = args.sexfiles
-    fits_j, fits_h, fits_ks = args.images
+    sexfile_j, sexfile_ks, sexfile_h = args.sexfiles
+    fits_j, fits_ks, fits_h = args.images
 
-    # if not os.path.exists(str(args.outfile)):
+    if not os.path.exists(str(args.outfile)):
+        # remove stars saturated in the fits images, marked with 0 center
+        phot_j = loop_remove_satur(fits_j, sexfile_j, band='J')
+        phot_ks = loop_remove_satur(fits_ks, sexfile_ks, band='Ks')
+        phot_h = loop_remove_satur(fits_h, sexfile_h, band='H')
 
-    # remove stars saturated in the fits images, marked with 0 center
-    phot_j = loop_remove_satur(fits_j, sexfile_j, band='J')
-    phot_ks = loop_remove_satur(fits_ks, sexfile_ks, band='Ks')
-    phot_h = loop_remove_satur(fits_h, sexfile_h, band='H')
-
-    # match the stars in each source extractor file by nearest neighbour
-    mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep))
-    # mags.to_csv(args.outfile, index=False)
-    # else:
-    #     mags = pd.read_csv(args.outfile)
-
-    if args.toplot:
-        # plot to make sure matching the same points
-        plt.scatter(mags['x_pix_J'].values, mags['y_pix_J'].values, color='k', label='J', marker='x')
-        plt.scatter(mags['x_pix_Ks'].values, mags['y_pix_Ks'].values, color='r', label='Ks', marker='x')
-        plt.scatter(mags['x_pix_H'].values, mags['y_pix_H'].values, color='g', label='H', marker='x')
-        plt.legend()
-        plt.show()
+        # match the stars in each source extractor file by nearest neighbour
+        mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
+        # mags.to_csv(args.outfile, index=False)
+    else:
+        mags = pd.read_csv(args.outfile)
 
     # (J-H) vs Ks, and (H-Ks) vs Ks
     plot_cmd(mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values, args.outfig)
 
 
-def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001):
+def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False):
     """
     For every star found by the photometry in the J band, look for the same star in the Ks, H bands
     """
 
     idxs = query_tree3(table_j, table_ks, table_h, max_sep)
 
-    mags = {'mag_aper_J': table_j['mag_aper_J'].values[idxs[0]], 'magerr_aper_J': table_j['magerr_aper_J'].values[idxs[0]],
-            'mag_aper_Ks': table_ks['mag_aper_Ks'].values[idxs[1]], 'magerr_aper_Ks': table_ks['magerr_aper_Ks'].values[idxs[1]],
-            'mag_aper_H': table_h['mag_aper_H'].values[idxs[2]], 'magerr_aper_H': table_h['magerr_aper_H'].values[idxs[2]]}
+    if toplot:
+        fig, ax = plt.subplots(1, 2)
+        ax[0].plot(table_j['x_pix_J'].values[idxs[0]], color='k', label='J')
+        ax[0].plot(table_ks['x_pix_Ks'].values[idxs[1]], color='r', label='Ks')
+        ax[0].plot(table_h['x_pix_H'].values[idxs[2]], color='g', label='H')
+
+        ax[1].plot(table_j['y_pix_J'].values[idxs[0]], color='k', label='J')
+        ax[1].plot(table_ks['y_pix_Ks'].values[idxs[1]], color='r', label='Ks')
+        ax[1].plot(table_h['y_pix_H'].values[idxs[2]], color='g', label='H')
+        plt.legend()
+        plt.show()
+
+    if toplot:
+        # plot to make sure matching the same points
+        plt.scatter(table_j['x_pix_J'].values[idxs[0]], table_j['y_pix_J'].values[idxs[0]], color='k', label='J', marker='x')
+        plt.scatter(table_ks['x_pix_Ks'].values[idxs[1]], table_ks['y_pix_Ks'].values[idxs[1]], color='r', label='Ks', marker='x')
+        plt.scatter(table_h['x_pix_H'].values[idxs[2]], table_h['y_pix_H'].values[idxs[2]], color='g', label='H', marker='x')
+        plt.legend()
+        plt.show()
+
+    mags = {'mag_aper_J': table_j['mag_aper_J'].values[idxs[0]],
+            'magerr_aper_J': table_j['magerr_aper_J'].values[idxs[0]],
+            'mag_aper_Ks': table_ks['mag_aper_Ks'].values[idxs[1]],
+            'magerr_aper_Ks': table_ks['magerr_aper_Ks'].values[idxs[1]],
+            'mag_aper_H': table_h['mag_aper_H'].values[idxs[2]],
+            'magerr_aper_H': table_h['magerr_aper_H'].values[idxs[2]]}
 
     return pd.DataFrame(data=mags)
 
@@ -143,8 +161,10 @@ def query_tree3(table_j, table_ks, table_h, max_sep=0.0001):
     dups3 = []
 
     for i in range(len(table_j.index)):
-        d2, icoords2 = tree2.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]), distance_upper_bound=max_sep)
-        d3, icoords3 = tree3.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]), distance_upper_bound=max_sep)
+        d2, icoords2 = tree2.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]),
+                                   distance_upper_bound=max_sep)
+        d3, icoords3 = tree3.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]),
+                                   distance_upper_bound=max_sep)
         if (d2 != np.inf) & (d3 != np.inf):
             if icoords2 in idxs2:
                 dups2.append(icoords2)
@@ -199,27 +219,30 @@ def loop_remove_satur(image, sexfile, band=None):
     return unsat_phottable
 
 
-def read_sex_band(sfile, skiplines=12, band=None):
+def read_sex_band(sfile, skiplines=15, band=None):
     #   1 FLUX_APER              Flux vector within fixed circular aperture(s)              [count]
     #   2 FLUXERR_APER           RMS error vector for aperture flux(es)                     [count]
     #   3 MAG_APER               Fixed aperture magnitude vector                            [mag]
     #   4 MAGERR_APER            RMS error vector for fixed aperture mag.                   [mag]
-    #   5 KRON_RADIUS            Kron apertures in units of A or B
-    #   6 X_IMAGE                Object position along x                                    [pixel]
-    #   7 Y_IMAGE                Object position along y                                    [pixel]
-    #   8 X_WORLD                Barycenter position along world x axis                     [deg]
-    #   9 Y_WORLD                Barycenter position along world y axis                     [deg]
-    #  10 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
-    #  11 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
-    #  12 FLAGS                  Extraction flags
+    #   5 MAG_AUTO               Kron-like elliptical aperture magnitude                    [mag]
+    #   6 MAGERR_AUTO            RMS error for AUTO magnitude                               [mag]
+    #   7 KRON_RADIUS            Kron apertures in units of A or B
+    #   8 X_IMAGE                Object position along x                                    [pixel]
+    #   9 Y_IMAGE                Object position along y                                    [pixel]
+    #  10 X_WORLD                Barycenter position along world x axis                     [deg]
+    #  11 Y_WORLD                Barycenter position along world y axis                     [deg]
+    #  12 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
+    #  13 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
+    #  14 FLAGS                  Extraction flags
 
     if band is None:
-        names = ['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'kron_radius', 'x_pix', 'y_pix', 'x_wcs',
-                 'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']
+        names = ['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'mag_auto', 'magerr_auto', 'kron_radius',
+                 'bkg', 'x_pix', 'y_pix', 'x_wcs', 'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']
     else:
         names = ['flux_aper_{}'.format(band), 'fluxerr_aper_{}'.format(band), 'mag_aper_{}'.format(band),
-                 'magerr_aper_{}'.format(band), 'kron_radius', 'x_pix_{}'.format(band), 'y_pix_{}'.format(band),
-                 'x_wcs_{}'.format(band), 'y_wcs_{}'.format(band), 'fwhm_image', 'fwhm_world', 'flags']
+                 'magerr_aper_{}'.format(band), 'mag_auto_{}'.format(band), 'magerr_auto_{}'.format(band),
+                 'kron_radius', 'bkg', 'x_pix_{}'.format(band), 'y_pix_{}'.format(band), 'x_wcs_{}'.format(band),
+                 'y_wcs_{}'.format(band), 'fwhm_image', 'fwhm_world', 'flags']
     # read in file as pandas dataframe
     table = pd.read_csv(sfile, skiprows=skiplines, sep=r"\s*", engine='python', names=names)
 
