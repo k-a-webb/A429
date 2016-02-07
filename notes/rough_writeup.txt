@@ -1,12 +1,4 @@
 
-James:
-	- BE spheres
-	- Herschel imagry
-	- nicest code
-	- B68 -> CB68 ?
-
-
-
 
 Initial conditions for star formation - regions prior to actual event
 —————————————————————————————————————
@@ -34,13 +26,21 @@ Molecular clouds
 	- NH3, CO molecular lines
 		- kinematics and chemical composition of gas
 		- issues because optical depth and self absorption (launhardt)
-	- dust emission, extinction
+	- dust
 		- 1% of mass of ISM in solar neighbourhood (launhardt)
 		- extinction, attenuation of background starlight
 			- preferable for column density measures
 			- not good for densest cores (N_H > 1E22 cm-2) (launhardt)
-		- scattering of ambient starlight
+		- scattering of ambient starlight, ISRF
+			- scattered ISRF, does not trace interiors of cores 
+			- scattered midIR of IS light penestrates low mass envelopes
+				- requires large dust grains to be efficient (launhardt, pagan 2010)
+			- requires precise knowledge of scattering phase function
 		- thermal emission
+		- absorption of ISRF
+	*** need to combine info from different tracers to supplement dust emission observations
+		- dust opacity calibrations
+
 
 Cores
  - cores 0.1 pc scale, 0.5-5 Msun, 10^4-10^5 cm^-3, 0.1-0.3 km.s, 8-12 K
@@ -57,6 +57,8 @@ We expect the dust to be coupled to the molecules such that we can infer the mol
 	- ratio should be constant (lombardi html)
 
 Dust extinction
+ - good for column density measures, not good when too dense to see background
+ - requires apriori SED of background stars, and dense background 
  - NIR extinction mapping of background starlight
 	- independent of temperature
 	- depends on reddening law r_v^H,K to convert A_k to A_v (v all frequencies?)
@@ -77,7 +79,26 @@ Dust emission
 	- peaks of SED in mid IR (?)
 	- complicated by los superpositions
  - better for densest cores where do not get good resolution from bkg stars
+ - for cores of T 8-10K, mid-IR in RJ tail of Planck spectrum
+	- emission poorly constrains temperature
 	
+
+dust absorption
+ - mid-IR, far-IR absorption of background ISRF (launhardt, refs wn)
+ - studies report that los-projected geometry very different that spherical geometry
+	- both protostellar and wrestler phases
+
+
+*** relate dust continuum emission, for given wavelength, to mass of emitting matter
+	- Td, dust grain temperature
+	- kappa_nu, mass absorption coefficient
+	- gas-to-dust mass ratio
+ - opacity of dust correlates with grain optical properties, wavelength, temperature (launhardt)
+	- could vary under different physical conditions
+	- degeneracies between opacity variations and ?
+	- typically assume ‘standard dust model’
+
+
 
 density 
  - projected column density 
@@ -95,16 +116,39 @@ dust temperature
 	- dust emissivity as function of density
 	- cold cover in ice, ‘freeze out’ ??
 
-Herschel
- - measured peak of thermal dust spectral energy distribution
+Herschel 70-500 um FIR, additional sub ground based 
+ - measured complete SED of thermal dust emission with good spatial resolution (launhardt)
 	- still need opacities
  - continuum emission at high sensitivity and wide scales
 	- my include 6 bids, resolution linearly dependent on wavelength
- - distinguish protostellar and wrestler by point like 70um emission (andre refs wn)
+ - distinguish protostellar and prestellar by point like 70um emission (andre refs wn)
 	- MCs within 500 pc has sensitivity to detect ‘first hydrostatic cores’ ~0.01-0.1 L_sun
  - preferentially detects prestellar in densest filaments (andre), density > 7E21 cm-2
 
 
 Near-Infrared Color Excess (Nice)
  - compares colours with H,K,(H-K) with nearby unobscured field
+
+
+Project
+ - combine NIR extinction with FIR emission maps
+ - break degenercy of dust opacity and temperature 
+ - constrain FIR/submm spectral index beta (kappa prop. nu^beta)
+ - constrain NIR and FIR opacity, kappa_NIR / kappa_FIR
+How
+ - observe 6 nearby, isolated MCCs with WIRCam NIR
+	- relatively simple envelope structure according to FIR
+	- allow dust opacity analysis
+ - 4 starless, 1 embedded low-luminosity protostars
+	- study variety of environments
+ - J, Ks, H bands, need sigma_Ag <= 0.03
+
+
+
+
+
+WIKIPEDIA
+In any photometric system interstellar reddening can be described by color excess, defined as the difference between an object's observed color index and its intrinsic color index (sometimes referred to as its normal color index). An object's intrinsic color index is the theoretical color index which it would have if unaffected by extinction. In the UBV photometric system the color excess E_{B-V} is related to the B-V colour by:
+
+E_{B-V} = (B-V)_{\textrm{observed}} - (B-V)_{\textrm{intrinsic}}\,
 
