@@ -76,7 +76,8 @@ def main():
         mags = pd.read_csv(args.outfile)
 
     # (J-H) vs Ks, and (H-Ks) vs Ks
-    plot_cmd(mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values, args.outfig)
+    plot_cmd([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values],
+             [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
 
 
 def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False):
@@ -100,9 +101,12 @@ def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False
 
     if toplot:
         # plot to make sure matching the same points
-        plt.scatter(table_j['x_pix_J'].values[idxs[0]], table_j['y_pix_J'].values[idxs[0]], color='k', label='J', marker='x')
-        plt.scatter(table_ks['x_pix_Ks'].values[idxs[1]], table_ks['y_pix_Ks'].values[idxs[1]], color='r', label='Ks', marker='x')
-        plt.scatter(table_h['x_pix_H'].values[idxs[2]], table_h['y_pix_H'].values[idxs[2]], color='g', label='H', marker='x')
+        plt.scatter(table_j['x_pix_J'].values[idxs[0]], table_j['y_pix_J'].values[idxs[0]], color='k', label='J',
+                    marker='x')
+        plt.scatter(table_ks['x_pix_Ks'].values[idxs[1]], table_ks['y_pix_Ks'].values[idxs[1]], color='r', label='Ks',
+                    marker='x')
+        plt.scatter(table_h['x_pix_H'].values[idxs[2]], table_h['y_pix_H'].values[idxs[2]], color='g', label='H',
+                    marker='x')
         plt.legend()
         plt.show()
 
@@ -114,36 +118,6 @@ def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False
             'magerr_aper_H': table_h['magerr_aper_H'].values[idxs[2]]}
 
     return pd.DataFrame(data=mags)
-
-    # idxsj, idxsks, idxsh = query_tree3(table_j, table_ks, table_h, max_sep)
-    #
-    # spliced_table_j = table_j[idxsj]  # apply True/False array to splice out matched indexes
-    # spliced_table_j.reset_index(inplace=True, drop=True)
-    # spliced_table_ks = table_ks[idxsks]
-    # spliced_table_ks.reset_index(inplace=True, drop=True)
-    # spliced_table_h = table_h[idxsh]
-    # spliced_table_h.reset_index(inplace=True, drop=True)
-    #
-    # sorted_table_j = spliced_table_j.sort_values('x_wcs_J')  # sort both tables by the x axis
-    # sorted_table_ks = spliced_table_ks.sort_values('x_wcs_Ks')
-    # sorted_table_h = spliced_table_h.sort_values('x_wcs_H')
-    #
-    # plt.plot(sorted_table_j['x_pix_J'].values, color='k', label='J')
-    # plt.plot(sorted_table_ks['x_pix_Ks'].values, color='r', label='Ks')
-    # plt.plot(sorted_table_h['x_pix_H'].values, color='g', label='H')
-    # plt.legend()
-    # plt.show()
-    #
-    # plt.plot(sorted_table_j['y_pix_J'].values, color='k', label='J')
-    # plt.plot(sorted_table_ks['y_pix_Ks'].values, color='r', label='Ks')
-    # plt.plot(sorted_table_h['y_pix_H'].values, color='g', label='H')
-    # plt.legend()
-    # plt.show()
-    #
-    # sorted_table_ks.drop(['kron_radius', 'fwhm_image', 'fwhm_world', 'flags'], axis=1, inplace=True)
-    # sorted_table_h.drop(['kron_radius', 'fwhm_image', 'fwhm_world', 'flags'], axis=1, inplace=True)
-    #
-    # return pd.concat((sorted_table_j, sorted_table_ks, sorted_table_h), axis=1)
 
 
 def query_tree3(table_j, table_ks, table_h, max_sep=0.0001):
@@ -179,33 +153,6 @@ def query_tree3(table_j, table_ks, table_h, max_sep=0.0001):
         raise Exception, 'WARNING: duplicates found'
 
     return np.array((idxs1, idxs2, idxs3))
-
-    # tree_ks = KDTree(zip(table_ks['x_wcs_Ks'].values.ravel(), table_ks['y_wcs_Ks'].values.ravel()))
-    # tree_h = KDTree(zip(table_h['x_wcs_H'].values.ravel(), table_h['y_wcs_H'].values.ravel()))
-    #
-    # idxs_j = np.zeros(len(table_j), dtype=bool)
-    # idxs_ks = np.zeros(len(table_ks), dtype=bool)
-    # idxs_h = np.zeros(len(table_h), dtype=bool)
-    #
-    # for i in range(len(table_j)):
-    #     d2, i2 = tree_ks.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]),
-    #                            distance_upper_bound=max_sep)
-    #     d3, i3 = tree_h.query((table_j['x_wcs_J'].values[i], table_j['y_wcs_J'].values[i]),
-    #                           distance_upper_bound=max_sep)
-    #     if (d2 != np.inf) & (d3 != np.inf):
-    #         if (idxs_j[i] is True) | (idxs_ks[i2] is True) | (idxs_h[i3] is True):
-    #             print '  WARNING: duplicates found for index {}'.format(i)
-    #         idxs_j[i] = True
-    #         idxs_ks[i2] = True
-    #         idxs_h[i3] = True
-    #     else:
-    #         print 'no match index {}'.format(i)
-    #
-    # if (np.count_nonzero(idxs_j) != np.count_nonzero(idxs_ks)) | (np.count_nonzero(idxs_j) != np.count_nonzero(idxs_h)):
-    #     print 'Number of indexes dont match: {}, {}, {}'.format(np.count_nonzero(idxs_j), np.count_nonzero(idxs_ks),
-    #                                                             np.count_nonzero(idxs_h))
-    #
-    # return idxs_j, idxs_ks, idxs_h
 
 
 def loop_remove_satur(image, sexfile, band=None):
@@ -253,29 +200,38 @@ def read_sex_band(sfile, skiplines=15, band=None):
     return table
 
 
-def plot_cmd(mag_j, mag_h, mag_ks, outfig):
+def plot_cmd(mags, magerrs, outfig):
     """
     Plot colour magnitude diagrams for (J-H) v. Ks, (H-Ks) v. Ks
+    mags array of magnitudes J, H, Ks in that order
+    same oder for magerrs
     """
 
-    fig, ax = plt.subplots(nrows=1, ncols=2)
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12,8))
 
-    # ax[0] = plt.gca()
-    ax[0].scatter(mag_j - mag_h, mag_ks, marker='.')
-    # ax[0].errorbar(apertures, average_rel, yerr=yerr)
-
+    # J - H vs Ks
+    # xerr = np.sqrt((magerrs[0]/mags[0])**2 + (magerrs[1]/mags[1])**2)*(mags[0] - mags[1])
+    ax[0].scatter(mags[0] - mags[1], mags[2], marker='.')
+    # ax[0].errorbar(mags[0] - mags[1], mags[2], yerr=magerrs[2], xerr=xerr, ecolor='g')
     ax[0].set_ylabel('Ks')
     ax[0].set_xlabel('J-H')
 
-    # ax[1] = plt.gca()
-    ax[1].scatter(mag_h - mag_ks, mag_ks, marker='.')
-    # ax[1].errorbar(apertures, average_rel, yerr=yerr)
-
+    # H - Ks vs Ks
+    # xerr = np.sqrt((magerrs[2]/mags[2])**2 + (magerrs[1]/mags[1])**2)*(mags[1] - mags[2])
+    ax[1].scatter(mags[1] - mags[2], mags[2], marker='.')
+    # ax[1].errorbar(mags[1] - mags[2], mags[2], yerr=magerrs[2], xerr=xerr, ecolor='g')
     ax[1].set_ylabel('Ks')
     ax[1].set_xlabel('H-Ks')
 
+    # J - Ks vs H - Ks
+    ax[2].scatter(mags[0] - mags[2], mags[1] - mags[2], marker='.')
+    ax[2].set_xlabel('J-Ks')
+    ax[2].set_ylabel('H-Ks')
+
     ax[0].invert_yaxis()
     ax[1].invert_yaxis()
+    ax[2].invert_yaxis()
+    ax[2].invert_xaxis()
 
     if outfig is not None:
         plt.savefig(outfig)
