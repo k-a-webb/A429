@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import phot_curves
 import os
 from scipy.spatial import KDTree
+from matplotlib import mlab
 
 
 def main():
@@ -51,19 +52,22 @@ def main():
 
     args = parser.parse_args()
 
-    if args.sexfiles is None:
-        raise Exception, 'No source extractor files given'
-    if args.images is None:
-        raise Exception, 'No image files given'
-    if args.outfile is None:
-        print 'Warning: No output file specified'
+
     if args.outfig is None:
         print 'Warning: No output figure specified'
 
-    sexfile_j, sexfile_ks, sexfile_h = args.sexfiles
-    fits_j, fits_ks, fits_h = args.images
-
     if not os.path.exists(str(args.outfile)):
+
+        if args.sexfiles is None:
+            raise Exception, 'No source extractor files given'
+        if args.images is None:
+            raise Exception, 'No image files given'
+        if args.outfile is None:
+            print 'Warning: No output file specified'
+
+        sexfile_j, sexfile_ks, sexfile_h = args.sexfiles
+        fits_j, fits_ks, fits_h = args.images
+
         # remove stars saturated in the fits images, marked with 0 center
         phot_j = loop_remove_satur(fits_j, sexfile_j, band='J')
         phot_ks = loop_remove_satur(fits_ks, sexfile_ks, band='Ks')
@@ -71,13 +75,94 @@ def main():
 
         # match the stars in each source extractor file by nearest neighbour
         mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
-        # mags.to_csv(args.outfile, index=False)
+        mags.to_csv(args.outfile, index=False)
+
     else:
+        print 'Reading magnitude table from file {}'.format(args.outfile)
         mags = pd.read_csv(args.outfile)
 
-    # (J-H) vs Ks, and (H-Ks) vs Ks
-    plot_cmd([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values],
-             [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
+    # plot_cmd([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values],
+    #          [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
+
+    # clouds = ['CB68', 'L429', 'L1521E', 'L1544', 'L1552']
+    # centers = np.array([[2610.6899, 2868.1778], [2496.3232, 2158.1909], [2532.6025, 2753.7333], [2345.069, 2855.932],
+    #                     [2710.337, 2593.2019]])  # in pixels
+    # sizes = np.array([[1382.2207, 1227.3661], [1869.7259, 2345.7605], [1880.5105, 1777.3177], [1788.7782, 1570.9142],
+    #                   [1639.7134, 177.3117]])  # in pixels
+    # colour_excess(mags, centers[0], sizes[0])  # FIX THIS LATER
+
+    maps(mags['x_pix'].values, mags['y_pix'].values, mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values)
+
+def maps(x, y, mag_j, mag_h, mag_ks):
+
+    j_ks = mag_j - mag_ks
+    h_ks = mag_h - mag_ks
+
+    xi = np.arange(0, np.max(x), np.min(np.diff(x)))
+    yi = np.arange(0, np.max(y), np.min(np.diff(y)))
+    gridx, gridy = np.meshgrid(xi, yi)
+
+    z = mlab.griddata(x, y, j_ks, xi, yi, interp='linear')
+    plot_interpmap(gridx, gridy, x, y, z, 'J-Ks')
+
+    z = mlab.griddata(x, y, h_ks, xi, yi, interp='linear')
+    plot_interpmap(gridx, gridy, x, y, z, 'H-Ks')
+
+
+def plot_interpmap(gridx, gridy, x, y, z, label):
+
+
+    fig, axs = plt.subplots(1,1, figsize=(5,5))
+    pcm = plt.pcolormesh(gridx, gridy, np.ma.masked_invalid(z), cmap='coolwarm')
+    axs.scatter(x, y, marker='+', color='k')
+    axs.set_xlabel(r'x [pix]') ; axs.set_ylabel(r'y [pix]')
+    plt.colorbar(label=label)
+    plt.tight_layout()
+    plt.show()
+    return fig
+
+
+
+
+def colour_excess(table, cldcenter, cldsize):
+    """
+    E(i-j) = (m_i - m_j) - <m_i - m_j>_0 = A_j (tau_i/tau_j - 1)
+    """
+
+    in_x = table.query('{} < x_pix < {}'.format(cldcenter[0] - cldsize[0] / 2, cldcenter[0] + cldsize[0] / 2))
+    in_cloud = in_x.query('{} < y_pix < {}'.format(cldcenter[1] - cldsize[1] / 2, cldcenter[1] + cldsize[1] / 2))
+
+    out_idxs = np.ones(len(table), dtype=bool)
+    for i in in_cloud.index:
+        out_idxs[i] = False
+
+    out_cloud = table[out_idxs]
+
+    out_j_ks = out_cloud['mag_aper_J'].values - out_cloud['mag_aper_Ks'].values
+    out_h_ks = out_cloud['mag_aper_H'].values - out_cloud['mag_aper_Ks'].values
+    in_j_ks = in_cloud['mag_aper_J'].values - in_cloud['mag_aper_Ks'].values
+    in_h_ks = in_cloud['mag_aper_H'].values - in_cloud['mag_aper_Ks'].values
+
+    plt.scatter(out_j_ks, out_h_ks, color='b', label='out')
+    plt.scatter(in_j_ks, in_h_ks, color='g', label='in')
+    plt.xlabel('J-Ks')
+    plt.ylabel('H-Ks')
+    plt.legend()
+    plt.savefig('in_vs_out.png')
+    plt.show()
+
+
+    out_j_ks = np.average(out_cloud['mag_aper_J'].values - out_cloud['mag_aper_Ks'].values,
+                          weights=(out_cloud['magerr_aper_J'].values)**-2)
+    out_h_ks = np.average(out_cloud['mag_aper_H'].values - out_cloud['mag_aper_Ks'].values,
+                          weights=(out_cloud['magerr_aper_J'].values)**-2)
+    in_j_ks = np.average(in_cloud['mag_aper_J'].values - in_cloud['mag_aper_Ks'].values,
+                          weights=(in_cloud['magerr_aper_J'].values)**-2)
+    in_h_ks = np.average(in_cloud['mag_aper_H'].values - in_cloud['mag_aper_Ks'].values,
+                          weights=(in_cloud['magerr_aper_J'].values)**-2)
+
+
+    print (out_j_ks-out_h_ks)-(in_j_ks-in_h_ks)
 
 
 def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False):
@@ -110,7 +195,9 @@ def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False
         plt.legend()
         plt.show()
 
-    mags = {'mag_aper_J': table_j['mag_aper_J'].values[idxs[0]],
+    mags = {'x_pix': table_j['x_pix_J'].values[idxs[0]], 'y_pix': table_j['y_pix_J'].values[idxs[0]],
+            'x_wcs': table_j['x_wcs_J'].values[idxs[0]], 'y_wcs': table_j['y_wcs_J'].values[idxs[0]],
+            'mag_aper_J': table_j['mag_aper_J'].values[idxs[0]],
             'magerr_aper_J': table_j['magerr_aper_J'].values[idxs[0]],
             'mag_aper_Ks': table_ks['mag_aper_Ks'].values[idxs[1]],
             'magerr_aper_Ks': table_ks['magerr_aper_Ks'].values[idxs[1]],
@@ -207,7 +294,7 @@ def plot_cmd(mags, magerrs, outfig):
     same oder for magerrs
     """
 
-    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12,8))
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12, 8))
 
     # J - H vs Ks
     # xerr = np.sqrt((magerrs[0]/mags[0])**2 + (magerrs[1]/mags[1])**2)*(mags[0] - mags[1])
