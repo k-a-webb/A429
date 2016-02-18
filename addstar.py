@@ -2,16 +2,18 @@ __author__ = 'kawebb'
 
 import argparse
 from pyraf import iraf
-# import pandas as pd
+import os
 import numpy as np
 from astropy.io import ascii
+from scipy.spatial import KDTree
 
 __author__ = 'kawebb'
 
 """
 Create input for DAOPHOT ADDSTAR to generate artificial stars
 
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -ap 30 -zp 30-0.192943311392
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -ap 30 -zp 29.80705
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68_J_sub.fits -ap 30 -zp 29.80705
 """
 
 
@@ -57,11 +59,15 @@ def main():
     parser.add_argument("--outcoords", '-coo',
                         action='store',
                         default=None,
-                        help='Outfile of coordinates [pix].')
+                        help='Outfile of coordinates [wcs].')
     parser.add_argument("--outphot", '-phot',
                         action='store',
                         default=None,
                         help='Outfile of daophot photometry.')
+    parser.add_argument("--outsexphot", '-sexphot',
+                        action='store',
+                        default=None,
+                        help='Outfile of daophot photometry with source extractor photometry.')
     parser.add_argument("--outpst", '-pst',
                         action='store',
                         default=None,
@@ -78,91 +84,126 @@ def main():
                         action='store',
                         default=None,
                         help='Outfile of daophot psf image.')
+    parser.add_argument("--outartphot", '-artphot',
+                        action='store',
+                        default=None,
+                        help='Outfile of artificial star positions and magnitudes.')
+    parser.add_argument("--outaddimage", '-addimg',
+                        action='store',
+                        default=None,
+                        help='Outfile image with artificial stars.')
     args = parser.parse_args()
 
-    run_daophot(args.sexfile, args.image, args.aperture, args.zeropoint, args.outcoords, args.outphot, args.outpst,
-                args.outopst, args.group, args.outpsfimg)
-
-
-def run_daophot(sexfile, image, aperture, zeropoint, coords=None, photfile=None, pstfile=None, opstfile=None,
-                groupfile=None, psfimage=None,
-                maxnpsf=100.):
-    if sexfile is None:
+    if args.sexfile is None:
         raise Exception, 'No input source extractor file given'
-    if image is None:
+    if args.image is None:
         raise Exception, 'No input image file given'
-    if aperture is None:
+    if args.aperture is None:
         raise Exception, 'No input aperture parameter given'
-    if zeropoint is None:
+    if args.zeropoint is None:
         raise Exception, 'No input zeropoint value given'
+
+    run_daophot(args.sexfile, args.image, float(args.aperture), float(args.zeropoint), args.outcoords, args.outphot,
+                args.outsexphot, args.outpst, args.outopst, args.outgroup, args.outpsfimg, args.outartphot,
+                args.outaddimage)
+
+
+def run_daophot(sexfile, image, aperture, zeropoint, coords=None, photfile=None, sexphotfile=None, pstfile=None,
+                opstfile=None, groupfile=None, psfimage=None, maxnpsf=25., artphotfile=None, addimage=None):
+
+    prefix_sex = (sexfile.split('/')[1]).split('.')[0]
+    prefix_img = (image.split('/')[1]).split('.')[0]
 
     if coords is None:
         coords = sexfile.split('.')[0] + '.coo'
     if photfile is None:
         photfile = sexfile.split('.')[0] + '.phot'
+    if sexphotfile is None:
+        sexphotfile = sexfile.split('.')[0] + '.mag'
     if pstfile is None:
         pstfile = sexfile.split('.')[0] + '.pst'
     if opstfile is None:
         opstfile = sexfile.split('.')[0] + '.opst'
     if groupfile is None:
-        groupfile = sexfile.split('.')[0] + '.group'
+        groupfile = sexfile.split('.')[0] + '.psg'
     if psfimage is None:
-        psfimage = sexfile.split('.')[0] + '.fits'
+        psfimage = image.split('.')[0] + '.psf.fits'
+    if artphotfile is None:
+        artphotfile = sexfile.split('.')[0] + '.art'
+    if addimage is None:
+        addimage = image.split('.')[0] + '.add.fits'
 
-    data = ascii.read(sexfile, format='sextractor')
-    np.savetxt(coords, np.transpose((np.array(data['X_IMAGE']), np.array(data['X_IMAGE']))), delimiter=' ')
+    sex_data = ascii.read(sexfile, format='sextractor')
+    np.savetxt(coords, np.transpose((np.array(sex_data['X_WORLD']), np.array(sex_data['Y_WORLD']))), delimiter=' ')
+
+    bkg = np.std(np.array(sex_data['BACKGROUND']))
+    print bkg
 
     iraf.daophot()
     # phot -- do aperture photometry on a list of stars
     # phot image
-    iraf.daophot.phot(image, coords=coords, output=photfile, wcsin="world", apertures=aperture,
-                      annulus=aperture + 10, dannulus=10, zmag=zeropoint, verbose=False)
+    if not os.path.exists(photfile):
+        iraf.daophot.phot(image, coords=coords, output=photfile, wcsin="world", apertures=aperture,
+                          zmag=zeropoint, verbose=True)  # , annulus=aperture + 10, dannulus=10,
+
+    if not os.path.exists(sexphotfile):
+        write_phot(photfile, sexphotfile, sexfile)
 
     # pstselect -- select candidate psf stars from a photometry file
     # pstselect image photfile pstfile maxnpsf
-    iraf.daophot.pstselect(image, photfile, pstfile, maxnpsf, wcsin='world')
+    if not os.path.exists(pstfile):
+        iraf.daophot.pstselect(image, sexphotfile, pstfile, maxnpsf)
 
     # psf -- build the point spread function for an image
     # psf image photfile pstfile psfimage opstfile groupfile
-    iraf.daophot.psf(image, photfile, pstfile, psfimage, opstfile, groupfile)
+    if not os.path.exists(pstfile):
+        iraf.daophot.psf(image, photfile=sexphotfile, pstfile=pstfile, psfimage=psfimage, opstfile=opstfile, groupfile=groupfile)
+
+    # define parameters of artificial stars
+    if not os.path.exists(artphotfile):
+        nstars = 1000
+        x = np.random.random(size=nstars) * np.linspace(0,np.max(sex_data['X_WORLD']),nstars)
+        y = np.random.random(size=nstars) * np.linspace(0,np.max(sex_data['Y_WORLD']),nstars)
+        mags = np.random.random(size=nstars) * np.linspace(np.min(sex_data['MAG_APER']),np.max(sex_data['MAG_APER']),nstars)
+        np.savetxt(artphotfile, np.transpose([x,y,mags]), delimiter=' ')
+    else:
+        print artphotfile
 
     # addstar -- add artificial stars to images
     # addstar image photfile psfimage addimage
-    iraf.daophot.addstar(image, photfile, psfimage)  # 50% recovery
+    if not os.path.exists(addimage):
+        iraf.daophot.addstar(image, artphotfile, psfimage, addimage)  # 50% recovery
+    else:
+        print addimage
 
 
-# def read_sex_band(sfile, skiplines=15, band=None):
-#     #   1 FLUX_APER              Flux vector within fixed circular aperture(s)              [count]
-#     #   2 FLUXERR_APER           RMS error vector for aperture flux(es)                     [count]
-#     #   3 MAG_APER               Fixed aperture magnitude vector                            [mag]
-#     #   4 MAGERR_APER            RMS error vector for fixed aperture mag.                   [mag]
-#     #   5 MAG_AUTO               Kron-like elliptical aperture magnitude                    [mag]
-#     #   6 MAGERR_AUTO            RMS error for AUTO magnitude                               [mag]
-#     #   7 KRON_RADIUS            Kron apertures in units of A or B
-#     #   8 X_IMAGE                Object position along x                                    [pixel]
-#     #   9 Y_IMAGE                Object position along y                                    [pixel]
-#     #  10 X_WORLD                Barycenter position along world x axis                     [deg]
-#     #  11 Y_WORLD                Barycenter position along world y axis                     [deg]
-#     #  12 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
-#     #  13 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
-#     #  14 FLAGS                  Extraction flags
-#
-#     if band is None:
-#         names = ['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'mag_auto', 'magerr_auto', 'kron_radius',
-#                  'bkg', 'x_pix', 'y_pix', 'x_wcs', 'y_wcs', 'fwhm_image', 'fwhm_world', 'flags']
-#     else:
-#         names = ['flux_aper_{}'.format(band), 'fluxerr_aper_{}'.format(band), 'mag_aper_{}'.format(band),
-#                  'magerr_aper_{}'.format(band), 'mag_auto_{}'.format(band), 'magerr_auto_{}'.format(band),
-#                  'bkg', 'kron_radius', 'x_pix_{}'.format(band), 'y_pix_{}'.format(band), 'x_wcs_{}'.format(band),
-#                  'y_wcs_{}'.format(band), 'fwhm_image', 'fwhm_world', 'flags']
-#     # read in file as pandas dataframe
-#     table = pd.read_csv(sfile, skiprows=skiplines, sep=r"\s*", engine='python', names=names)
-#
-#     # drop all rows with saturated stars
-#     table = table[table[names[2]] != 99.]
-#     table.reset_index()
-#
-#     return table
+def write_phot(photfile, newphotfile, sexfile):
+    phot = ascii.read(photfile, format='daophot')
+    sex = ascii.read(sexfile, format='sextractor')
+
+    tree = KDTree(zip(phot['XCENTER'].ravel(), phot['YCENTER'].ravel()))
+    max_sep = 0.1
+    idxs = []
+    for i in range(len(sex)):
+        d, i = tree.query((sex['X_IMAGE'][i], sex['Y_IMAGE'][i]), distance_upper_bound=max_sep)
+        if (d != np.inf):
+            idxs.append(i)
+
+    sex_matched = sex[idxs]
+
+    with open(newphotfile, 'w') as outfile:
+        with open(photfile, 'r') as infile:
+            for line in infile:
+                if line.startswith('#'):
+                    outfile.write(line)
+
+        for i in range(len(phot)):
+            if (phot['MAG'][i] > 0.) and (sex_matched['MAG_APER'][i] < 99.):
+                outfile.write("{:<23}{:<10.3f}{:<10.3f}{:<6d}{:<23}{:<6d} \\\n".format(phot['IMAGE'][i], phot['XINIT'][i], phot['YINIT'][i], phot['ID'][i], phot['COORDS'][i], phot['LID'][i]))
+                outfile.write("   {:<11.3f}{:<11.3f}0.000   0.000   INDEF   INDEF          0    NoError   \\\n".format(phot['XCENTER'][i], phot['YCENTER'][i]))
+                outfile.write("   {:<15.7g}{:<15.7g}{:<15.7g}{:<7d}{:<9d}0    NoError   \\\n".format(phot['MSKY'][i], phot['STDEV'][i], phot['SSKEW'][i], phot['NSKY'][i], phot['NSREJ'][i]))
+                outfile.write("   1.             INDEF          INDEF                  INDEF                  \\\n")
+                outfile.write("   8.00     {:<14.7g}{:<11.7g}{:<14.7g}{:<7.3f}{:<6.3f}0    NoError    \n".format(phot['SUM'][i], phot['AREA'][i], sex_matched['FLUX_APER'][i], sex_matched['MAG_APER'][i], sex_matched['MAGERR_APER'][i]))
 
 
 if __name__ == '__main__':
