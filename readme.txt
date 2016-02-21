@@ -10,12 +10,10 @@ photometry
 - calculate the zeropoint offset comparing to a 2mass catalogue
 	zeropoint.py
 - determine the limiting magnitude by adding artificial stars 
-	incomplete
-
-- plot colour magnitude diagrams
+	addstars.py (incomplete)
+- plot colour magnitude diagrams, calculate colours
 	colours.py
-- calculate the colours of the stars and plot extinction map
-	mapping.py
+
 
 
 phot_curves.py
