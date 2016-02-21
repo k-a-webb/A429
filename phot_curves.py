@@ -92,7 +92,7 @@ def main():
         phottable = pd.read_csv(args.outfile)
 
     # curve_of_growths(phottable, np.array(args.apertures, dtype=np.int), args.r_fed, args.outcog)
-    # aper_auto_check(phottable, args.apertures, args.outmags)
+    aper_auto_check(phottable, args.apertures, args.outmags)
 
     if args.r_fed is None:
         args.r_fed = np.mean(phottable['fwhm_image'].values) * 10.
@@ -105,9 +105,6 @@ def main():
         plt.scatter(phottable['x_pix'].values, phottable['y_pix'].values, marker='x', color='k')
         # plt.colorbar()
         plt.show()
-
-
-
 
 
 def aper_auto_check(phottable, apertures, outfig=None):
@@ -139,6 +136,14 @@ def aper_auto_check(phottable, apertures, outfig=None):
         plt.savefig(outfig)
     plt.show()
 
+    # plt.plot(apertures, diff)
+    plt.scatter(phottable['magerr_auto'].values, phottable['magerr_aper_{}'.format(ap)].values)
+    plt.xlabel('magerr_auto_avg')
+    plt.ylabel(r'magerr_aper_avg')
+    if outfig is not None:
+        plt.savefig(outfig)
+    plt.show()
+
 
 def half_light(x, y, outfig=None):
     """
@@ -152,7 +157,7 @@ def half_light(x, y, outfig=None):
     perr = np.sqrt(np.diag(cov))
     fit = p[0] * x + p[1]
 
-    idx = (y <= fit + np.std(y))*(fit - np.std(y) <= y)
+    idx = (y <= fit + np.std(y)) * (fit - np.std(y) <= y)
     yy = y[np.where(idx)]
     xx = x[np.where(idx)]
 
@@ -160,7 +165,7 @@ def half_light(x, y, outfig=None):
     p, cov = optimize.curve_fit(linear, xx, yy, p0=[1., np.min(yy)], sigma=weight, absolute_sigma=True)
     perr = np.sqrt(np.diag(cov))
     fit = p[0] * xx + p[1]
-    fiterr = 3*np.std(yy)
+    fiterr = 3 * np.std(yy)
 
     plt.scatter(x, y, marker='.', alpha=0.3, color='g')
     plt.plot(xx, fit, '-k', label="linear fit")
@@ -173,7 +178,7 @@ def half_light(x, y, outfig=None):
         plt.savefig(outfig)
     plt.show()
 
-    idx_bool =  np.zeros_like(x, dtype=bool)
+    idx_bool = np.zeros_like(x, dtype=bool)
     idx_bool[np.where(idx)] = True
 
     return idx_bool
