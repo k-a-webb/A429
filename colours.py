@@ -17,7 +17,9 @@ import matplotlib.pyplot as plt
 import phot_curves
 import os
 from scipy.spatial import KDTree
-from matplotlib import mlab
+from scipy import interpolate
+from matplotlib.colors import LogNorm
+import zeropoint
 
 
 def main():
@@ -52,7 +54,6 @@ def main():
 
     args = parser.parse_args()
 
-
     if args.outfig is None:
         print 'Warning: No output figure specified'
 
@@ -75,94 +76,81 @@ def main():
 
         # match the stars in each source extractor file by nearest neighbour
         mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
-        mags.to_csv(args.outfile, index=False)
+        mags.to_csv(args.outfile, index=False, delimater=' ')
 
     else:
         print 'Reading magnitude table from file {}'.format(args.outfile)
         mags = pd.read_csv(args.outfile)
 
+    # outfig_cc = args.outfig.split('.')[0]+'_cc.png'
     # plot_cmd([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values],
-    #          [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
+    #         [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
+    # plot_colourcolour([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values], outfig_cc)
 
-    # clouds = ['CB68', 'L429', 'L1521E', 'L1544', 'L1552']
+    map_extinction(mags['x_pix'].values, mags['y_pix'].values, mags['mag_aper_J'].values, mags['mag_aper_H'].values,
+                   0.7, 0.404 / 0.6)
+    # map_extinction(mags['x_pix'].values, mags['y_pix'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values, 0.2, 0.6)
+
     # centers = np.array([[2610.6899, 2868.1778], [2496.3232, 2158.1909], [2532.6025, 2753.7333], [2345.069, 2855.932],
     #                     [2710.337, 2593.2019]])  # in pixels
     # sizes = np.array([[1382.2207, 1227.3661], [1869.7259, 2345.7605], [1880.5105, 1777.3177], [1788.7782, 1570.9142],
     #                   [1639.7134, 177.3117]])  # in pixels
-    # colour_excess(mags, centers[0], sizes[0])  # FIX THIS LATER
-
-    maps(mags['x_pix'].values, mags['y_pix'].values, mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values)
-
-def maps(x, y, mag_j, mag_h, mag_ks):
-
-    j_ks = mag_j - mag_ks
-    h_ks = mag_h - mag_ks
-
-    xi = np.arange(0, np.max(x), np.min(np.diff(x)))
-    yi = np.arange(0, np.max(y), np.min(np.diff(y)))
-    gridx, gridy = np.meshgrid(xi, yi)
-
-    z = mlab.griddata(x, y, j_ks, xi, yi, interp='linear')
-    plot_interpmap(gridx, gridy, x, y, z, 'J-Ks')
-
-    z = mlab.griddata(x, y, h_ks, xi, yi, interp='linear')
-    plot_interpmap(gridx, gridy, x, y, z, 'H-Ks')
+    # out_centers = np.array([[4242, 1782], [0,0]])
+    # out_sizes = np.array([[1176, 1024], [0,0]])
+    # compare_colourcolour(mags, centers[0], sizes[0], out_centers[0], out_sizes[0], 'CB68/CB68_cc_compare.png')
 
 
-def plot_interpmap(gridx, gridy, x, y, z, label):
+def map_extinction(x, y, mag1, mag2, intrinsic, tau_ratio, binsize=10.):
+    """
+    Intrinsic colours from: Stead, J.J., Hoare, M.G., New Empirical Intrinsic Colours for the 2MASS and UKIDSS
+        Photometric Systems, RAS., 2010
+    H - K : 0.2
+    J - H : 0.7
+
+    Extinction law from: Neilbock EPoS A&A 547 2012
+    tau_K = 0.6 tau_H = 0.404 tau_J
+    """
+
+    # E(i,j) = (m_i - m_j) - <m_i - m_j>_0 = A_j (tau_i/tau_j -1)
+    excess = (mag1 - mag2) - intrinsic
+    A = excess / (tau_ratio - 1.)
+    tau = A/1.086
+
+    xi = np.arange(0, np.max(x), binsize)
+    yi = np.arange(0, np.max(y), binsize)
+
+    # gridx, gridy = np.meshgrid(xi, yi)
+    # z = interpolate.griddata(np.vstack((x,y)).T, A, (gridx,gridy), method='cubic')
+    # plot_interpmap(gridx, gridy, x, y, z, r'A_H', 'A_h_cubic2.png')
+
+    tau_binned = np.zeros((len(xi), len(yi)))
+    for i in range(len(xi)):
+        for j in range(len(yi)):
+            dist = np.sqrt((x - xi[i]) ** 2 + (y - yi[j]) ** 2)
+            weight = dist ** -2
+            tau_binned[i, j] = np.sum(tau * weight) / np.sum(weight)
+
+    plt.imshow(tau_binned, origin='lower', norm=LogNorm())
+    cb = plt.colorbar()
+    cb.set_label(r'optical depth, $\tau_H$')
+    plt.savefig('tau_H_bin10.png')
+    # plt.show()
+
+    # plot_interpmap(gridx, gridy, x, y, A_binned, r'A_H', 'A_H_binned.png')
 
 
-    fig, axs = plt.subplots(1,1, figsize=(5,5))
-    pcm = plt.pcolormesh(gridx, gridy, np.ma.masked_invalid(z), cmap='coolwarm')
-    axs.scatter(x, y, marker='+', color='k')
-    axs.set_xlabel(r'x [pix]') ; axs.set_ylabel(r'y [pix]')
+def plot_interpmap(gridx, gridy, x, y, z, label, outfig):
+    fig, axs = plt.subplots(1, 1, figsize=(10, 10))
+    pcm = plt.pcolormesh(gridx, gridy, np.ma.masked_invalid(z), cmap='coolwarm', norm=LogNorm())
+    # axs.scatter(x, y, marker='+', color='k')
+    axs.set_xlabel(r'x [pix]')
+    axs.set_ylabel(r'y [pix]')
     plt.colorbar(label=label)
-    plt.tight_layout()
-    plt.show()
+    plt.xlim(np.min(x), np.max(x))
+    plt.ylim(np.min(y), np.max(y))
+    plt.savefig(outfig)
+    # plt.show()
     return fig
-
-
-
-
-def colour_excess(table, cldcenter, cldsize):
-    """
-    E(i-j) = (m_i - m_j) - <m_i - m_j>_0 = A_j (tau_i/tau_j - 1)
-    """
-
-    in_x = table.query('{} < x_pix < {}'.format(cldcenter[0] - cldsize[0] / 2, cldcenter[0] + cldsize[0] / 2))
-    in_cloud = in_x.query('{} < y_pix < {}'.format(cldcenter[1] - cldsize[1] / 2, cldcenter[1] + cldsize[1] / 2))
-
-    out_idxs = np.ones(len(table), dtype=bool)
-    for i in in_cloud.index:
-        out_idxs[i] = False
-
-    out_cloud = table[out_idxs]
-
-    out_j_ks = out_cloud['mag_aper_J'].values - out_cloud['mag_aper_Ks'].values
-    out_h_ks = out_cloud['mag_aper_H'].values - out_cloud['mag_aper_Ks'].values
-    in_j_ks = in_cloud['mag_aper_J'].values - in_cloud['mag_aper_Ks'].values
-    in_h_ks = in_cloud['mag_aper_H'].values - in_cloud['mag_aper_Ks'].values
-
-    plt.scatter(out_j_ks, out_h_ks, color='b', label='out')
-    plt.scatter(in_j_ks, in_h_ks, color='g', label='in')
-    plt.xlabel('J-Ks')
-    plt.ylabel('H-Ks')
-    plt.legend()
-    plt.savefig('in_vs_out.png')
-    plt.show()
-
-
-    out_j_ks = np.average(out_cloud['mag_aper_J'].values - out_cloud['mag_aper_Ks'].values,
-                          weights=(out_cloud['magerr_aper_J'].values)**-2)
-    out_h_ks = np.average(out_cloud['mag_aper_H'].values - out_cloud['mag_aper_Ks'].values,
-                          weights=(out_cloud['magerr_aper_J'].values)**-2)
-    in_j_ks = np.average(in_cloud['mag_aper_J'].values - in_cloud['mag_aper_Ks'].values,
-                          weights=(in_cloud['magerr_aper_J'].values)**-2)
-    in_h_ks = np.average(in_cloud['mag_aper_H'].values - in_cloud['mag_aper_Ks'].values,
-                          weights=(in_cloud['magerr_aper_J'].values)**-2)
-
-
-    print (out_j_ks-out_h_ks)-(in_j_ks-in_h_ks)
 
 
 def sort_by_coords_tree(table_j, table_ks, table_h, max_sep=0.0001, toplot=False):
@@ -261,13 +249,14 @@ def read_sex_band(sfile, skiplines=15, band=None):
     #   5 MAG_AUTO               Kron-like elliptical aperture magnitude                    [mag]
     #   6 MAGERR_AUTO            RMS error for AUTO magnitude                               [mag]
     #   7 KRON_RADIUS            Kron apertures in units of A or B
-    #   8 X_IMAGE                Object position along x                                    [pixel]
-    #   9 Y_IMAGE                Object position along y                                    [pixel]
-    #  10 X_WORLD                Barycenter position along world x axis                     [deg]
-    #  11 Y_WORLD                Barycenter position along world y axis                     [deg]
-    #  12 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
-    #  13 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
-    #  14 FLAGS                  Extraction flags
+    #   8 BACKGROUND             Background at centroid position                            [count]
+    #   9 X_IMAGE                Object position along x                                    [pixel]
+    #  10 Y_IMAGE                Object position along y                                    [pixel]
+    #  11 X_WORLD                Barycenter position along world x axis                     [deg]
+    #  12 Y_WORLD                Barycenter position along world y axis                     [deg]
+    #  13 FWHM_IMAGE             FWHM assuming a gaussian core                              [pixel]
+    #  14 FWHM_WORLD             FWHM assuming a gaussian core                              [deg]
+    #  15 FLAGS                  Extraction flags
 
     if band is None:
         names = ['flux_aper', 'fluxerr_aper', 'mag_aper', 'magerr_aper', 'mag_auto', 'magerr_auto', 'kron_radius',
@@ -287,14 +276,14 @@ def read_sex_band(sfile, skiplines=15, band=None):
     return table
 
 
-def plot_cmd(mags, magerrs, outfig):
+def plot_cmd(mags, magerrs, outfig=None):
     """
     Plot colour magnitude diagrams for (J-H) v. Ks, (H-Ks) v. Ks
     mags array of magnitudes J, H, Ks in that order
     same oder for magerrs
     """
 
-    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12, 8))
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
 
     # J - H vs Ks
     # xerr = np.sqrt((magerrs[0]/mags[0])**2 + (magerrs[1]/mags[1])**2)*(mags[0] - mags[1])
@@ -310,19 +299,58 @@ def plot_cmd(mags, magerrs, outfig):
     ax[1].set_ylabel('Ks')
     ax[1].set_xlabel('H-Ks')
 
-    # J - Ks vs H - Ks
-    ax[2].scatter(mags[0] - mags[2], mags[1] - mags[2], marker='.')
-    ax[2].set_xlabel('J-Ks')
-    ax[2].set_ylabel('H-Ks')
-
     ax[0].invert_yaxis()
     ax[1].invert_yaxis()
-    ax[2].invert_yaxis()
-    ax[2].invert_xaxis()
 
     if outfig is not None:
         plt.savefig(outfig)
     plt.show()
+
+
+def plot_colourcolour(mags, outfig=None):
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+
+    # J - H vs H - Ks
+    ax.scatter(mags[1] - mags[2], mags[0] - mags[1], marker='.')
+    # ax[0].errorbar(mags[0] - mags[1], mags[2], yerr=magerrs[2], xerr=xerr, ecolor='g')
+    ax.set_xlabel('H - K')
+    ax.set_ylabel('J - H')
+
+    ax.invert_yaxis()
+    ax.invert_xaxis()
+
+    if outfig is not None:
+        plt.savefig(outfig)
+    plt.show()
+
+
+def compare_colourcolour(mags, center, size, outcenter, outsize, outfig=None):
+    in_x = mags.query('{} < x_pix < {}'.format(center[0] - size[0] / 2, center[0] + size[0] / 2))
+    in_xy = in_x.query('{} < y_pix < {}'.format(center[1] - size[1] / 2, center[1] + size[1] / 2))
+
+    inmags = [in_xy['mag_aper_J'].values, in_xy['mag_aper_H'].values, in_xy['mag_aper_Ks'].values]
+
+    in_x = mags.query('{} < x_pix < {}'.format(outcenter[0] - outsize[0] / 2, outcenter[0] + outsize[0] / 2))
+    in_xy = in_x.query('{} < y_pix < {}'.format(outcenter[1] - outsize[1] / 2, outcenter[1] + outsize[1] / 2))
+    outmags = [in_xy['mag_aper_J'].values, in_xy['mag_aper_H'].values, in_xy['mag_aper_Ks'].values]
+
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(5, 5), sharex=True, sharey=True)
+    # J - H vs H - Ks
+    incloud = ax[0].scatter(inmags[1] - inmags[2], inmags[0] - inmags[1], marker='.', color='b')
+    outcloud = ax[1].scatter(outmags[1] - outmags[2], outmags[0] - outmags[1], marker='.', color='r')
+    ax[0].set_xlabel('H - K')
+    ax[1].set_xlabel('H - K')
+    ax[0].set_ylabel('J - H')
+    ax[0].set_xlim(-4, 4)
+    ax[0].set_ylim(-3, 4)
+
+    ax[0].invert_yaxis()
+    ax[0].invert_xaxis()
+
+    fig.subplots_adjust(hspace=0, wspace=0.1)
+    lgd = fig.legend((incloud, outcloud), ('Reddened', 'Reference'), loc=(0.588, .878))
+    plt.savefig(outfig, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    # plt.show()
 
 
 if __name__ == '__main__':
