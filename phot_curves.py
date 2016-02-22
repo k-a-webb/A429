@@ -116,14 +116,14 @@ def main():
         plt.show()
 
 
-def remove_saturated(image, sexfile, apertures, outfile):
+def remove_saturated(image, sexfile, outfile=None):
     imgdata, imghdr = read_fits(image)  # Access fits data to read locations of saturated stars
 
     phottable = ascii.read(sexfile, format='sextractor')
     unsat_idxs = detect_satur(imgdata, phottable['X_IMAGE'], phottable['Y_IMAGE'], phottable['KRON_RADIUS'])
     phottable = phottable[unsat_idxs]
-    ascii.write(outfile, phottable, comment=False)
-
+    if outfile is not None:
+        ascii.write(phottable, outfile, comment=False)
     return phottable
 
 
@@ -237,7 +237,7 @@ def aper_auto_check(phottable, apertures, outfig=None):
     plt.show()
 
 
-def half_light(x, y, outfig=None):
+def half_light(x, y, outfig=None, toplot=True):
     """
     Plot flux radius as a function of magnitude
     """
@@ -259,21 +259,22 @@ def half_light(x, y, outfig=None):
     fit = p[0] * xx + p[1]
     fiterr = 3 * np.std(yy)
 
-    plt.scatter(x, y, marker='.', alpha=0.3, color='g')
-    plt.plot(xx, fit, '-k', label="linear fit")
-    plt.plot(xx, fit - fiterr, '-b', label="linear fit")
-    plt.plot(xx, fit + fiterr, '-b', label="linear fit")
-    plt.xlabel('mag')
-    plt.ylabel('half light radius')
-    plt.ylim(0, 5)
-    if outfig is not None:
-        plt.savefig(outfig)
-    plt.show()
+    if toplot:
+        plt.scatter(x, y, marker='.', alpha=0.3, color='g')
+        plt.plot(xx, fit, '-k', label="linear fit")
+        plt.plot(xx, fit - fiterr, '-b', label="linear fit")
+        plt.plot(xx, fit + fiterr, '-b', label="linear fit")
+        plt.xlabel('mag')
+        plt.ylabel('half light radius')
+        plt.ylim(0, 5)
+        if outfig is not None:
+            plt.savefig(outfig)
+        plt.show()
 
     idx_bool = np.zeros_like(x, dtype=bool)
     idx_bool[np.where(idx)] = True
 
-    return idx_bool
+    return idx
 
 
 def read_fits(ffile):
