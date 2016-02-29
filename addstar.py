@@ -7,9 +7,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import axes3d
 
-
 """
-Create artificial stars from a good candidate star in the image
+Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
 
 python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim_psfex/art.coo -artimg mag_lim_psfex/CB68_J_sub.art.fits -mags 18. 19.
 
@@ -38,7 +37,8 @@ def main():
     # images = '{}/{}_{}_sub.fits'
 
     parser = argparse.ArgumentParser(
-        description='For a given source extractor file, output a text file with coordinates in pixels')
+        description='Generate a PSF model from a ideal star, implant nstars number into the given image. Determine the '
+                    'number of artificial stars recovered.')
     parser.add_argument("--sexfile", '-sf',
                         action='store',
                         default=None,
@@ -95,12 +95,6 @@ def main():
                         default=100,
                         type=int,
                         help='Number of artificial stars to add')
-    parser.add_argument("--fwhm",
-                        nargs='*',
-                        action='store',
-                        type=float,
-                        default=(3.,1.),
-                        help='FWHM of stars to build PSF model from, and err, (fwhm, fwhmerr).')
     parser.add_argument("--maxcounts",
                         action='store',
                         type=float,
@@ -119,11 +113,14 @@ def main():
                         action='store',
                         default=False,
                         help='True: plot all figures, False: plot only when finding PSF star.')
+    parser.add_argument("--mag",
+                        action='store',
+                        default=None,
+                        help='Magnitude of chosen PSF star.')
     args = parser.parse_args()
 
     if args.artfile is None:
-        raise Exception, 'No output coordinate file given'
-
+        raise Exception, 'No coordinate file given for artificial stars'
 
     if not os.path.exists(args.artfile):
         if args.sexfile is None:
@@ -137,37 +134,46 @@ def main():
         assert len(args.magrange) == 2, 'Magnitude input is two values, min and max'
 
         addstar(args.sexfile, args.image, args.artfile, args.artimage, args.magrange, args.star_idx,
-                args.dimension, int(args.nstars), args.xrange, args.yrange, args.fwhm, float(args.mincounts),
+                args.dimension, int(args.nstars), args.xrange, args.yrange, float(args.mincounts),
                 float(args.maxcounts), float(args.min_maxcounts), args.toplot)
 
-    if args.artsexfile is None:
-        raise Exception, 'No source extractor file given, with artificial stars'
-    find_art_stars(args.artsexfile, args.artfile)
+    if args.artsexfile is not None:
+        find_art_stars(args.artsexfile, args.artfile, args.mag)
 
 
-def find_art_stars(addphot, artphotfile, max_sep=0.1):
-    sex = ascii.read(addphot, format='sextractor')
-    x_wcs, y_wcs, mag = np.loadtxt(artphotfile, unpack=True)
+def find_art_stars(artsexfile, artfile, mag=None, max_sep=2.):
+    sex = ascii.read(artsexfile, format='sextractor')
+    x_pix, y_pix = np.loadtxt(artfile, unpack=True)
 
-    tree = KDTree(zip(sex['X_WORLD'].ravel(), sex['Y_WORLD'].ravel()))
+    tree = KDTree(zip(sex['X_IMAGE'].ravel(), sex['Y_IMAGE'].ravel()))
 
     idx_found = []
-    for i in range(len(x_wcs)):
-        d, idx = tree.query((x_wcs[i], y_wcs[i]))
+    sex_idx = []
+    for i in range(len(x_pix)):
+        d, idx = tree.query((x_pix[i], y_pix[i]))
         if d < max_sep:
             idx_found.append(i)
+            sex_idx.append(idx)
     assert len(idx_found) > 0, 'No artificial stars found'
+    print '{}/100 recovered'.format(len(idx_found))
 
-    plt.hist(np.array(mag), 100, color='g')
-    plt.hist(np.array(mag)[idx_found], 100, color='b', alpha=0.5)
-    plt.xlim(10, 30)
+    # plt.hist(np.array(mag), 100, color='g')
+    plt.hist(sex['MAG_APER'][sex_idx], 100, color='b', alpha=0.5)
+    if mag is not None:
+        plt.axvline(mag, 0, 10, color='r')
+    # plt.xlim(10, 30)
     plt.show()
 
 
 def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, s=25., nstars=100,
-            (xmin, xmax)=(600., 4800.),
-            (ymin, ymax)=(600., 4800.), (fwhm, fwhmerr)=(3., 1.), mincounts=-np.inf, maxcounts=np.inf,
-            min_maxcounts=-np.inf, toplot=False):
+            (xmin, xmax)=(600., 4800.), (ymin, ymax)=(600., 4800.), mincounts=-np.inf,
+            maxcounts=np.inf, min_maxcounts=-np.inf, toplot=False, mag_limit=0.01):
+    """
+    Parse source extractor photometry file for stars within the ranges of magmin-magmax, xmin-xmax, ymin-ymax,
+    mincounts-maxcounts. Plot 3D cutouts of each star which qualifies, prompt user for ID of selected star.
+    Fit the selected star with a 2D-gaussian function, implant nstars # of artificial stars randomly into the image.
+    Output coordinates of artificial stars into artfile, and image with artificial stars as artimage.
+    """
     sextable = ascii.read(sexfile, format='sextractor')
 
     with fits.open(image) as hdu:
@@ -177,22 +183,36 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     stars_inxy = stars_inx[(ymin < stars_inx['Y_IMAGE']) & (stars_inx['Y_IMAGE'] < ymax)]
     stars_mag = stars_inxy[(magmin < stars_inxy['MAG_APER']) & (stars_inxy['MAG_APER'] < magmax)]
 
-    stars = stars_mag[(fwhm - fwhmerr < stars_mag['FWHM_IMAGE']) & (stars_mag['FWHM_IMAGE'] < fwhm + fwhmerr)]
+    stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
 
     if star_idx is None:
         star_idx = False
         i = 0
         while not star_idx:
             x, y = stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
-            cutout = imgdata[x - s / 2.:x + s / 2., y - s / 2.:y + s / 2.]
+            cutout = imgdata[int(y - s / 2.):int(y + s / 2.), int(x - s / 2.):int(x + s / 2.)]
 
             if (np.min(cutout) > mincounts) & (np.max(cutout) < maxcounts) & (np.max(cutout) > min_maxcounts):
                 print i, stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
-                fig = plt.figure()
-                ax = fig.add_subplot(111, projection='3d')
-                xx, yy = np.meshgrid(np.arange(s), np.arange(s))
-                ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
-                plt.show()
+
+                if toplot:
+                    fig = plt.figure()
+                    ax = fig.add_subplot(121, projection='3d')
+                    xx, yy = np.meshgrid(np.arange(s), np.arange(s))
+                    ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                    ax = fig.add_subplot(122)
+                    ax.imshow(np.log(imgdata), cmap=plt.cm.jet)
+                    ax.scatter(sextable['X_IMAGE'],sextable['Y_IMAGE'],marker='x', color='g')
+                    ax.scatter(x,y,marker='o', color='k')
+                    ax.set_xlim([int(x - s / 2.),int(x + s / 2.)])
+                    ax.set_ylim([int(y - s / 2.),int(y + s / 2.)])
+                    plt.show()
+                else:
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111, projection='3d')
+                    xx, yy = np.meshgrid(np.arange(s), np.arange(s))
+                    ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                    plt.show()
 
                 star_idx = raw_input('Star index: ')
             i += 1
@@ -200,7 +220,7 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     star = stars[int(star_idx)]
 
     x, y = star['X_IMAGE'], star['Y_IMAGE']
-    cutout = imgdata[x - s / 2.:x + s / 2., y - s / 2.:y + s / 2.]
+    cutout = imgdata[int(y - s / 2.):int(y + s / 2.), int(x - s / 2.):int(x + s / 2.)]
 
     xx, yy = np.meshgrid(np.arange(s), np.arange(s))
     popt, pcov = curve_fit(gaussian_2d, (xx, yy), cutout.ravel(),
@@ -208,15 +228,18 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
 
     if toplot:
         data_fitted = gaussian_2d((xx, yy), *popt).reshape(s, s)
-
-        fig, ax = plt.subplots(1, 1)
+        fig = plt.figure()
+        ax = fig.add_subplot(131)
+        ax.imshow(np.log(imgdata), cmap=plt.cm.jet, origin='bottom')#, extent=(xx.min(), xx.max(), yy.min(), yy.max()))
+        ax.scatter(sextable['X_IMAGE'],sextable['Y_IMAGE'],marker='x', color='g')
+        ax.scatter(x,y,marker='o', color='k')
+        ax.set_xlim([int(x - s / 2.),int(x + s / 2.)])
+        ax.set_ylim([int(y - s / 2.),int(y + s / 2.)])
+        ax = fig.add_subplot(132)
         ax.hold(True)
         ax.imshow(cutout, cmap=plt.cm.jet, origin='bottom', extent=(xx.min(), xx.max(), yy.min(), yy.max()))
         ax.contour(xx, yy, data_fitted, 8, colors='w')
-        plt.show()
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(133, projection='3d')
         ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1, color='blue')
         ax.plot_wireframe(xx, yy, data_fitted, rstride=1, cstride=1, color='red')
         plt.show()
@@ -242,11 +265,13 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         plt.scatter(x, y, marker='x', color='k')
         plt.show()
 
-    np.savetxt(artfile.format(star['MAG_APER']), np.transpose([x, y]), delimiter=' ')
+    print '  Writing coordinates of artificial stars'
+    np.savetxt(artfile.format(str(star['MAG_APER']).replace('.', '-')), np.transpose([x, y]), delimiter=' ')
 
+    print '  Writing image with artificial stars'
     hdu = fits.PrimaryHDU(1)
     hdu.data = art_imgdata
-    hdu.writeto(artimage.format(star['MAG_APER']), clobber=True)
+    hdu.writeto(artimage.format(str(star['MAG_APER']).replace('.', '-')), clobber=True)
 
 
 def random_sample(n, arr, min=None, max=None):
