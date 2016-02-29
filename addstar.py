@@ -5,16 +5,12 @@ import numpy as np
 from astropy.io import ascii, fits
 from scipy.spatial import KDTree
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 """
-Create input for DAOPHOT ADDSTAR to generate artificial stars
+Create artificial stars from a good candidate star in the image
 
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -ap 30 -zp 29.80705
-python addstar.py -img release/CB68_J_sub.fits -sf phot_t3/CB68_J_sex_t3_ap30.txt -path mag_lim/ -ap 30 -zp 29.80705
-python ../addstar.py -img ../release/CB68_J_sub.fits -sf CB68_J_sex_t3_ap30.txt -path ../mag_lim/ -ap 30 -zp 29.80705
-
-sex -c phot_t3.sex ../mag_lim/CB68_J_sub.add.fits -CATALOG_NAME ../mag_lim/CB68_J_sex_t3_ap30_add.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
-
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim_psfex/art.coo -artimg mag_lim_psfex/CB68_J_sub.art.fits -m 18. 19.
 """
 
 
@@ -47,33 +43,90 @@ def main():
                         action='store',
                         default=None,
                         help='Fits image file.')
-    parser.add_argument("--aperture", '-ap',
+    parser.add_argument("--artfile", '-artfile',
+                        action='store',
+                        default=None,
+                        help='Output file of coordinates of artificial stars.')
+    parser.add_argument("--artimage", '-artimg',
+                        action='store',
+                        default=None,
+                        help='Output image with artificial stars added.')
+    parser.add_argument("--magrange", '-m',
+                        nargs='*',
                         action='store',
                         default=None,
                         help='Aperture for photometry.')
-    parser.add_argument("--zeropoint", '-zp',
+
+    parser.add_argument("--star_idx", '-si',
                         action='store',
                         default=None,
-                        help='Zeropoint for photometry.')
-    parser.add_argument("--outpath", '-path',
+                        help='Index of star with PSF chosen to build model from')
+
+    # Optional, note defaul values
+    parser.add_argument("--xrange", '-m',
+                        nargs='*',
                         action='store',
                         default=None,
-                        help='File path for output files.')
-    parser.add_argument("--artphotfile", '-artphot',
+                        help='x range [pixels]')
+    parser.add_argument("--yrange", '-m',
+                        nargs='*',
                         action='store',
                         default=None,
-                        help='Input file of source extractor file with artificial stars added.')
+                        help='y range [pixels]')
+    parser.add_argument("--dimension", '-d',
+                        action='store',
+                        default=25.,
+                        help='Dimension of PSF box.')
+    parser.add_argument("--nstars", '-n',
+                        action='store',
+                        default=None,
+                        help='Number of artificial stars to add')
+    parser.add_argument("--fwhm",
+                        nargs='*',
+                        action='store',
+                        default=None,
+                        help='FWHM of stars to build PSF model from, and err, (fwhm, fwhmerr).')
+    parser.add_argument("--maxcounts",
+                        action='store',
+                        default=np.inf,
+                        help='Select only stars with counts less than this value [counts].')
+    parser.add_argument("--mincounts", '-n',
+                        action='store',
+                        default=-np.inf,
+                        help='Select only stars with counts greater than this value [counts].')
+    parser.add_argument("--min_maxcounts",
+                        action='store',
+                        default=-np.inf,
+                        help='Select only stars with maximum counts greater than this value [counts].')
+    parser.add_argument("--toplot",
+                        action='store',
+                        default=False,
+                        help='True: plot all figures, False: plot only when finding PSF star.')
     args = parser.parse_args()
 
     if args.sexfile is None:
         raise Exception, 'No input source extractor file given'
     if args.image is None:
         raise Exception, 'No input image file given'
+    if args.artimage is None:
+        raise Exception, 'No output image file given'
+    if args.artphotfile is None:
+        raise Exception, 'No output coordinate file given'
+    if args.magrange is None:
+        raise Exception, 'No magnitude range given'
+    assert len(args.magrange) == 2, 'Magnitude input is two values, min and max'
+    if args.xrange is None:
+        args.xrange = (600., 4800.)
+    if args.yrange is None:
+        args.yrange = (600., 4800.)
 
-    artphotfile = run_daophot(args.sexfile, args.image, args.outpath, args.artphotfile, args.aperture, args.zeropoint)
+    if not os.exists(args.artimage):
+        addstar(args.sexfile, args.image, args.artfile, args.artimage, args.magrange, args.star_idx,
+                float(args.dimension), int(args.nstars), args.xrange, args.yrange, args.fwhm, args.mincounts,
+                args.maxcounts, args.min_maxcounts, args.toplot)
 
-    print 'sex -c phot_t3.sex CB68_J_sub.add.fits -CATALOG_NAME CB68_J_sex_t3_ap30_add.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705'
-
+    print 'sex -c phot_t3.sex {} -CATALOG_NAME CB68_J_sex_t3_ap30_add.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705'.format(
+        args.artimage)
     find_art_stars(args.addphot, artphotfile)
 
 
@@ -96,75 +149,83 @@ def find_art_stars(addphot, artphotfile, max_sep=0.1):
     plt.show()
 
 
-def run_daophot(sexfile, image, outpath, artphotfile, aperture=None, zeropoint=None, maxnpsf=50., nstars=3000):
-    try:
-        prefix_img = (image.split('/')[-1]).split('.')[0]
-    except IndexError:
-        prefix_img = sexfile.split('.')[0]
+def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, s=25., nstars=100,
+            (xmin, xmax)=(600., 4800.),
+            (ymin, ymax)=(600., 4800.), (fwhm, fwhmerr)=(3., 1.), mincounts=-np.inf, maxcounts=np.inf,
+            min_maxcounts=-np.inf, toplot=False):
+    sextable = ascii.read(sexfile, format='sextractor')
 
-    coofile = os.path.join(outpath, prefix_img + '.coo')
-    coofile2 = os.path.join(outpath, prefix_img + '.coo.2')
-    photfile = os.path.join(outpath, prefix_img + '.phot')
-    sexphotfile = os.path.join(outpath, prefix_img + '.mag')
-    pstfile = os.path.join(outpath, prefix_img + '.pst')
-    opstfile = os.path.join(outpath, prefix_img + '.opst')
-    groupfile = os.path.join(outpath, prefix_img + '.psg')
-    psfimage = os.path.join(outpath, prefix_img + '.psf')
-    addimage = os.path.join(outpath, prefix_img + '.add')
+    with fits.open(image) as hdu:
+        imgdata = hdu[0].data
 
-    iraf.daophot()
+    stars_inx = sextable[(xmin < sextable['X_IMAGE']) & (sextable['X_IMAGE'] < xmax)]
+    stars_inxy = stars_inx[(ymin < stars_inx['Y_IMAGE']) & (stars_inx['Y_IMAGE'] < ymax)]
+    stars_mag = stars_inxy[(magmin < stars_inxy['MAG_APER']) & (stars_inxy['MAG_APER'] < magmax)]
+    stars = stars_mag[(fwhm - fwhmerr < stars_mag['FWHM_IMAGE']) & (stars_mag['FWHM_IMAGE'] < fwhm + fwhmerr)]
 
-    # daofind - automatically detect objects in an image
-    if not os.path.exists(coofile):
-        iraf.daophot.daofind(image=image, output=coofile)
-    print 'done with {}'.format(coofile)
+    if star_idx is None:
+        for i in range(len(stars))[:100]:  # CHANGE THIS EVENTUALLY
+            x, y = stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
+            cutout = imgdata[x - w / 2.:x + w / 2., y - h / 2.:y + h / 2.]
+            if (np.min(cutout) > mincounts) & (np.max(cutout) < maxcounts) & (np.max(cutout) > min_maxcounts):
+                print i, stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
+                fig = plt.figure()
+                ax = fig.add_subplot(111, projection='3d')
+                xx, yy = np.meshgrid(np.arange(w), np.arange(h))
+                ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                plt.show()
+        return
 
-    # remove saturated stars from coordinate file
-    if not os.path.exists(coofile2):
-        remove_saturated(image, sexfile, coofile, coofile2)
-    print 'done with {}'.format(coofile2)
+    star = stars[star_idx]
 
-    # phot -- do aperture photometry on a list of stars
-    if not os.path.exists(photfile):
-        raise Exception, 'STOP HERE AND RUN DAOPHOT PHOT IN IRAF, bkgstd=100, fwhm=3'
-        # if aperture is None:
-        #     raise Exception, 'No input aperture parameter given'
-        # if zeropoint is None:
-        #     raise Exception, 'No input zeropoint value given'
-        # iraf.daophot.phot(image, coords=coofile2, output=photfile, wcsin="world", apertures=float(aperture),
-        #                   zmag=float(zeropoint), verbose=True)
-    print 'done with {}'.format(photfile)
+    x, y = star['X_IMAGE'], star['Y_IMAGE']
+    cutout = imgdata[x - s / 2.:x + s / 2., y - s / 2.:y + s / 2.]
 
-    # replace phot values with those from source extractor
-    if not os.path.exists(sexphotfile):
-        write_phot(photfile, sexphotfile, sexfile)
-    print 'done with {}'.format(sexphotfile)
+    xx, yy = np.meshgrid(np.arange(s), np.arange(s))
 
-    # pstselect -- select candidate psf stars from a photometry file
-    if not os.path.exists(pstfile):
-        iraf.daophot.pstselect(image, sexphotfile, pstfile, maxnpsf)
-    print 'done with {}'.format(pstfile)
+    popt, pcov = curve_fit(gaussian_2d, (xx, yy), cutout.ravel(),
+                           p0=[np.max(cutout), s / 2., s / 2., s / 2., s / 2., 0., 0.])
+    data_fitted = gaussian_2d((xx, yy), *popt).reshape(s, s)
 
-    # psf -- build the point spread function for an image
-    if not os.path.exists(psfimage):
-        raise Exception, 'STOP HERE AND RUN DAOPHOT PSF IN IRAF, max=50000, rad=11'
-        # iraf.daophot.psf(image, photfile=sexphotfile, pstfile=pstfile, psfimage=psfimage, opstfile=opstfile,
-        #                  groupfile=groupfile, interactive=False)
-    print 'done with {}'.format(psfimage)
+    if toplot:
+        fig, ax = plt.subplots(1, 1)
+        ax.hold(True)
+        ax.imshow(cutout, cmap=plt.cm.jet, origin='bottom', extent=(xx.min(), xx.max(), yy.min(), yy.max()))
+        ax.contour(xx, yy, data_fitted, 8, colors='w')
+        plt.show()
 
-    # define parameters of artificial stars
-    if not os.path.exists(artphotfile):
-        sex_data = ascii.read(sexfile, format='sextractor')
-        x = random_sample(nstars, sex_data['X_WORLD'])
-        y = random_sample(nstars, sex_data['Y_WORLD'])
-        mags = random_sample(nstars, np.linspace(18., 28., nstars))
-        np.savetxt(artphotfile, np.transpose([x, y, mags]), delimiter=' ')
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1, color='blue')
+        ax.plot_wireframe(xx, yy, data_fitted, rstride=1, cstride=1, color='red')
+        plt.show()
 
-    # addstar -- add artificial stars to images
-    if not os.path.exists(addimage):
-        iraf.daophot.addstar(image, artphotfile, psfimage, addimage)  # 50% recovery
+    # amplitude, xo, yo, sigma_x, sigma_y, theta, offset
+    star_centered = gaussian_2d((xx, yy), popt[0], w / 2., h / 2., popt[3], popt[4], popt[5], popt[6]).reshape(w, h)
 
-    return artphotfile
+    if toplot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_wireframe(xx, yy, star_centered, rstride=1, cstride=1, color='red')
+        plt.show()
+
+    x = random_sample(nstars, sextable['X_IMAGE'])
+    y = random_sample(nstars, sextable['Y_IMAGE'])
+
+    art_imgdata = imgdata
+    for n in range(nstars):
+        art_imgdata[y[n] - h / 2.:y[n] + h / 2., x[n] - w / 2.:x[n] + w / 2.] += star_centered
+
+    if toplot:
+        plt.imshow(np.log(art_imgdata), origin='bottom', cmap='rainbow')
+        plt.scatter(x, y, marker='x', color='k')
+        plt.show()
+
+    np.savetxt(artfile, np.transpose([x, y, star['MAG_APER']]), delimiter=' ')
+
+    hdu = fits.PrimaryHDU(1)
+    hdu.data = art_imgdata
+    hdu.writeto(artimage, clobber=True)
 
 
 def random_sample(n, arr, min=None, max=None):
@@ -176,89 +237,15 @@ def random_sample(n, arr, min=None, max=None):
     return arr[idx]
 
 
-def write_phot(photfile, newphotfile, sexfile):
-    phot = ascii.read(photfile, format='daophot')
-    sex = ascii.read(sexfile, format='sextractor')
-
-    tree = KDTree(zip(phot['XCENTER'].ravel(), phot['YCENTER'].ravel()))
-    max_sep = 0.1
-
-    sex_idxs = []
-    phot_idxs = []
-    for i in range(len(sex)):
-        d, ii = tree.query((sex['X_IMAGE'][i], sex['Y_IMAGE'][i]), distance_upper_bound=max_sep)
-        if (d != np.inf):
-            sex_idxs.append(i)
-            phot_idxs.append(ii)
-
-    sex_matched = sex[sex_idxs]
-    phot_matched = phot[phot_idxs]
-
-    with open(newphotfile, 'w') as outfile:
-        with open(photfile, 'r') as infile:
-            for line in infile:
-                if line.startswith('#'):
-                    outfile.write(line)
-
-        for i in range(len(sex_idxs)):
-            if (phot_matched['MAG'][i] > 0.) and (sex['MAG_APER'][i] < 99.):
-                outfile.write("{:<23}{:<10.3f}{:<10.3f}{:<6d}{:<23}{:<6d} \\\n".format(
-                    phot_matched['IMAGE'][i], phot_matched['XINIT'][i], phot_matched['YINIT'][i], phot_matched['ID'][i],
-                    phot_matched['COORDS'][i], phot_matched['LID'][i]))
-                outfile.write("   {:<11.3f}{:<11.3f}0.000   0.000   INDEF   INDEF          0    NoError   \\\n".format(
-                    phot_matched['XCENTER'][i], phot_matched['YCENTER'][i]))
-                outfile.write("   {:<15.7g}{:<15.7g}{:<15.7g}{:<7d}{:<9d}0    NoError   \\\n".format(
-                    phot_matched['MSKY'][i], phot_matched['STDEV'][i], phot_matched['SSKEW'][i],
-                    phot_matched['NSKY'][i], phot_matched['NSREJ'][i]))
-                outfile.write("   1.             INDEF          INDEF                  INDEF                  \\\n")
-                outfile.write("   8.00     {:<14.7g}{:<11.7g}{:<14.7g}{:<7.3f}{:<6.3f}0    NoError    \n".format(
-                    phot_matched['SUM'][i], phot_matched['AREA'][i], sex_matched['FLUX_APER'][i],
-                    sex_matched['MAG_APER'][i], sex_matched['MAGERR_APER'][i]))
-
-    return
-
-
-def remove_saturated(image, sexfile, coofile, newcoofile, max_zeros=1.):
-    sex_data = ascii.read(sexfile, format='sextractor')
-    coo_data = ascii.read(coofile, format='daophot')
-
-    with fits.open(image) as hdu:
-        img_data = hdu[0].data
-
-    x = sex_data['X_IMAGE']
-    y = sex_data['Y_IMAGE']
-    r = sex_data['KRON_RADIUS']
-
-    idx = []
-    for i in range(len(x)):
-        zeros = []
-        for xx in range(int(x[i]) - int(r[i]), int(x[i]) + int(r[i])):
-            yy_p = np.sqrt(r[i] ** 2 - (xx - int(x[i])) ** 2) + int(y[i])
-            yy_m = -np.sqrt(r[i] ** 2 - (xx - int(x[i])) ** 2) + int(y[i])
-            for yy in range(int(yy_m), int(yy_p)):
-                if img_data[yy, xx] == 0.:
-                    zeros.append(1.)
-        if len(zeros) <= max_zeros:
-            idx.append(i)
-
-    with open(newcoofile, 'w') as outfile:
-        with open(coofile, 'r') as infile:
-            for line in infile:
-                if line.startswith('#'):
-                    outfile.write(line)
-        for i in range(len(idx)):
-            # N XCENTER   YCENTER   MAG      SHARPNESS   SROUND      GROUND      ID         \
-            # U pixels    pixels    #        #           #           #           #          \
-            # F %-13.3f   %-10.3f   %-9.3f   %-12.3f     %-12.3f     %-12.3f     %-6d       \
-            outfile.write("{:<13.3f}{:<10.3f}{:<9.3f}{:<12.3f}{:<12.3f}{:<12.3f}{:<6d}\n".format(coo_data['XCENTER'][i],
-                                                                                                 coo_data['YCENTER'][i],
-                                                                                                 coo_data['MAG'][i],
-                                                                                                 coo_data['SHARPNESS'][
-                                                                                                     i],
-                                                                                                 coo_data['SROUND'][i],
-                                                                                                 coo_data['GROUND'][i],
-                                                                                                 coo_data['ID'][i]))
-    return
+def gaussian_2d((x, y), amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
+    xo = float(xo)
+    yo = float(yo)
+    a = (np.cos(theta) ** 2) / (2 * sigma_x ** 2) + (np.sin(theta) ** 2) / (2 * sigma_y ** 2)
+    b = -(np.sin(2 * theta)) / (4 * sigma_x ** 2) + (np.sin(2 * theta)) / (4 * sigma_y ** 2)
+    c = (np.sin(theta) ** 2) / (2 * sigma_x ** 2) + (np.cos(theta) ** 2) / (2 * sigma_y ** 2)
+    g = offset + amplitude * np.exp(- (a * ((x - xo) ** 2) + 2 * b * (x - xo) * (y - yo)
+                                       + c * ((y - yo) ** 2)))
+    return g.ravel()
 
 
 if __name__ == '__main__':
