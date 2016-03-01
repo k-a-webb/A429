@@ -61,67 +61,67 @@ def main():
                         action='store',
                         type=float,
                         default=None,
-                        help='Aperture for photometry.')
+                        help='Magnitude range of stars, must be a list of floats separated by a space, eg "18. 19.".')
 
+    parser.add_argument("--artsexfile", '-artsf',
+                        action='store',
+                        default=None,
+                        help='Source extractor file with artificial stars. Used in second function only.')
+
+    # Optional, note default values
     parser.add_argument("--star_idx", '-si',
                         action='store',
                         type=float,
                         default=None,
-                        help='Index of star with PSF chosen to build model from')
-    parser.add_argument("--artsexfile", '-artsf',
-                        action='store',
-                        default=None,
-                        help='Source extractor file with artificial stars.')
-
-    # Optional, note defaul values
+                        help='Index of star with PSF chosen to build model from. Default: None')
     parser.add_argument("--xrange", '-xs',
                         nargs='*',
                         action='store',
                         type=float,
                         default=(600., 4800.),
-                        help='x range [pixels]')
+                        help='x range [pixels], Default: 600. 4800.')
     parser.add_argument("--yrange", '-ys',
                         nargs='*',
                         action='store',
                         type=float,
                         default=(600., 4800.),
-                        help='y range [pixels]')
+                        help='y range [pixels], Default: 600. 4800.')
     parser.add_argument("--dimension", '-d',
                         action='store',
                         default=25.,
                         type=float,
-                        help='Dimension of PSF box.')
+                        help='Dimension of PSF box, Default: 25.')
     parser.add_argument("--nstars", '-n',
                         action='store',
                         default=100,
                         type=int,
-                        help='Number of artificial stars to add')
+                        help='Number of artificial stars to add. Default: 100')
     parser.add_argument("--maxcounts",
                         action='store',
                         type=float,
                         default=np.inf,
-                        help='Select only stars with counts less than this value [counts].')
+                        help='Select only stars with counts less than this value [counts]. Default: inf')
     parser.add_argument("--mincounts",
                         action='store',
                         type=float,
                         default=-np.inf,
-                        help='Select only stars with counts greater than this value [counts].')
+                        help='Select only stars with counts greater than this value [counts]. Default: -inf')
     parser.add_argument("--min_maxcounts",
                         action='store',
                         default=-np.inf,
-                        help='Select only stars with maximum counts greater than this value [counts].')
+                        help='Select only stars with maximum counts greater than this value [counts]. Default: -inf')
     parser.add_argument("--toplot",
                         action='store',
                         default=False,
-                        help='True: plot all figures, False: plot only when finding PSF star.')
+                        help='True: plot all figures, False: plot only when finding PSF star. Defalut: False')
     parser.add_argument("--mag",
                         action='store',
                         default=None,
-                        help='Magnitude of chosen PSF star.')
+                        help='Magnitude of chosen PSF star. Used for plotting purposes only. Default: None')
     parser.add_argument("--chi2max",
                         action='store',
                         default=100.,
-                        help='Only display PSFs which have a chi2 less than this value when fitting a 2d gaussian.')
+                        help='Only display PSFs which have a chi2 less than this value when fitting a 2d gaussian. Default: 100')
     args = parser.parse_args()
 
     if args.artfile is None:
