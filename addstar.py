@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import axes3d
 """
 Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
 
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim_psfex/art.coo -artimg mag_lim_psfex/CB68_J_sub.art.fits -mags 18. 19.
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim_psfex/CB68_J_sub_art{}.coo -artimg mag_lim_psfex/CB68_J_sub.art{}.fits -mags 18. 18.5 --chi2max 30.
 
 sex -c phot_t3.sex ../mag_lim_psfex/CB68_J_sub.art18.254.fits -CATALOG_NAME ../mag_lim_psfex/CB68_J_sex_t3_ap30_add_18.254.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
 
@@ -141,6 +141,8 @@ def main():
         addstar(args.sexfile, args.image, args.artfile, args.artimage, args.magrange, args.star_idx,
                 args.dimension, int(args.nstars), args.xrange, args.yrange, float(args.mincounts),
                 float(args.maxcounts), float(args.min_maxcounts), args.toplot, chi2max=float(args.chi2max))
+    else:
+        'File {} already exists'.format(args.artfile)
 
     if args.artsexfile is not None:
         find_art_stars(args.artsexfile, args.artfile, args.mag)
@@ -193,7 +195,7 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
 
     # If a particular star is not specified in the command line, plot potential stars until one chosen
-    print 'Finding star PSFs to model, type any string to kill'
+    print 'Finding star PSFs to model: type a number to select the corresponding indexed star, "enter" to continue, any string to kill'
     if star_idx is None:
         star_idx = False
         i = 0
@@ -290,8 +292,10 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         plt.show()
 
     # create random number of stars
-    x = random_sample(nstars, sextable['X_IMAGE'], min=xmin, max=xmax)
-    y = random_sample(nstars, sextable['Y_IMAGE'], min=ymin, max=ymax)
+    print xmin, xmax, ymin, ymax, len(sextable['X_IMAGE'])
+
+    x = random_sample(nstars, min=xmin, max=xmax)
+    y = random_sample(nstars, min=ymin, max=ymax)
 
     # implant the gaussian "artificial star" at each location
     art_imgdata = imgdata
@@ -312,13 +316,14 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     hdu.writeto(artimage.format(str(star['MAG_APER']).replace('.', '-')), clobber=True)
 
 
-def random_sample(n, arr, min=None, max=None):
+def random_sample(n, min=None, max=None):
+
     if min is None:
         min = 0.
     if max is None:
-        max = len(arr)
+        max = nstars
     idx = np.random.randint(min, max, n)
-    return arr[idx]
+    return idx
 
 
 def gaussian_2d((x, y), amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
