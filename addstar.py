@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import axes3d
 """
 Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
 
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim_psfex/CB68_J_sub_art{}.coo -artimg mag_lim_psfex/CB68_J_sub.art{}.fits -mags 18. 18.5 --chi2max 30.
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artfile mag_lim/CB68_J_sub_art{}.coo -artimg mag_lim/CB68_J_sub.art{}.fits -mags 18. 18.5 --chi2max 30.
 
 sex -c phot_t3.sex ../mag_lim_psfex/CB68_J_sub.art18.254.fits -CATALOG_NAME ../mag_lim_psfex/CB68_J_sex_t3_ap30_add_18.254.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
 
@@ -118,6 +118,10 @@ def main():
                         action='store',
                         default=None,
                         help='Magnitude of chosen PSF star. Used for plotting purposes only. Default: None')
+    parser.add_argument("--maxmagerr",
+                        action='store',
+                        default=0.01,
+                        help='Maximum err level to continue, percent eg 0.05 is 5\%. Default: 0.01')
     parser.add_argument("--chi2max",
                         action='store',
                         default=100.,
@@ -140,7 +144,8 @@ def main():
 
         addstar(args.sexfile, args.image, args.artfile, args.artimage, args.magrange, args.star_idx,
                 args.dimension, int(args.nstars), args.xrange, args.yrange, float(args.mincounts),
-                float(args.maxcounts), float(args.min_maxcounts), args.toplot, chi2max=float(args.chi2max))
+                float(args.maxcounts), float(args.min_maxcounts), args.toplot, mag_limit=float(args.maxmagerr),
+                chi2max=float(args.chi2max))
     else:
         'File {} already exists'.format(args.artfile)
 
@@ -190,9 +195,19 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
 
     # parse for stars in source extractor table with parameters in range of those specified
     stars_inx = sextable[(xmin < sextable['X_IMAGE']) & (sextable['X_IMAGE'] < xmax)]
+    assert len(stars_inx) != 0, 'ERROR: No stars found within xrange'
     stars_inxy = stars_inx[(ymin < stars_inx['Y_IMAGE']) & (stars_inx['Y_IMAGE'] < ymax)]
+    assert len(stars_inxy) != 0, 'ERROR: No stars found within, yrange'
     stars_mag = stars_inxy[(magmin < stars_inxy['MAG_APER']) & (stars_inxy['MAG_APER'] < magmax)]
+    assert len(stars_mag) != 0, 'ERROR: No stars found within magrange'
     stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
+    assert len(stars) != 0, 'ERROR: No stars found within magerr limit'
+
+    assert len(np.shape(stars)) != 0, 'ERROR: No stars found within xrange, yrange, magrange, or under magerr limit'
+    if np.shape(stars)[0] == 1:
+        star_idx = 0.
+        print 'WARNING: Only one star found, turning plotting on'
+        toplot = True
 
     # If a particular star is not specified in the command line, plot potential stars until one chosen
     print 'Finding star PSFs to model: type a number to select the corresponding indexed star, "enter" to continue, any string to kill'
@@ -248,6 +263,9 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
                 except:
                     counter += 1
             i += 1
+            if i > np.shape(stars)[0]:
+                print "ERROR: exceeded number of stars, restarting loop"
+                i = 0.
 
     try:
         star = stars[int(star_idx)]
@@ -292,8 +310,6 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         plt.show()
 
     # create random number of stars
-    print xmin, xmax, ymin, ymax, len(sextable['X_IMAGE'])
-
     x = random_sample(nstars, min=xmin, max=xmax)
     y = random_sample(nstars, min=ymin, max=ymax)
 
@@ -308,12 +324,12 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         plt.show()
 
     print '  Writing coordinates of artificial stars'
-    np.savetxt(artfile.format(str(star['MAG_APER']).replace('.', '-')), np.transpose([x, y]), delimiter=' ')
+    np.savetxt(artfile.format(str(star['MAG_APER']).replace('.', 'p')), np.transpose([x, y]), delimiter=' ')
 
     print '  Writing image with artificial stars'
     hdu = fits.PrimaryHDU(1)
     hdu.data = art_imgdata
-    hdu.writeto(artimage.format(str(star['MAG_APER']).replace('.', '-')), clobber=True)
+    hdu.writeto(artimage.format(str(star['MAG_APER']).replace('.', 'p')), clobber=True)
 
 
 def random_sample(n, min=None, max=None):
