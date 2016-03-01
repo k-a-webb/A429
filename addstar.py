@@ -3,8 +3,9 @@ import os
 import numpy as np
 from astropy.io import ascii, fits
 from scipy.spatial import KDTree
-import matplotlib.pyplot as plt
+from scipy.stats import chisquare
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
 
 """
@@ -117,6 +118,10 @@ def main():
                         action='store',
                         default=None,
                         help='Magnitude of chosen PSF star.')
+    parser.add_argument("--chi2max",
+                        action='store',
+                        default=100.,
+                        help='Only display PSFs which have a chi2 less than this value when fitting a 2d gaussian.')
     args = parser.parse_args()
 
     if args.artfile is None:
@@ -135,7 +140,7 @@ def main():
 
         addstar(args.sexfile, args.image, args.artfile, args.artimage, args.magrange, args.star_idx,
                 args.dimension, int(args.nstars), args.xrange, args.yrange, float(args.mincounts),
-                float(args.maxcounts), float(args.min_maxcounts), args.toplot)
+                float(args.maxcounts), float(args.min_maxcounts), args.toplot, chi2max=float(args.chi2max))
 
     if args.artsexfile is not None:
         find_art_stars(args.artsexfile, args.artfile, args.mag)
@@ -167,61 +172,91 @@ def find_art_stars(artsexfile, artfile, mag=None, max_sep=2.):
 
 def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, s=25., nstars=100,
             (xmin, xmax)=(600., 4800.), (ymin, ymax)=(600., 4800.), mincounts=-np.inf,
-            maxcounts=np.inf, min_maxcounts=-np.inf, toplot=False, mag_limit=0.01):
+            maxcounts=np.inf, min_maxcounts=-np.inf, toplot=False, mag_limit=0.01, chi2max=100.):
     """
     Parse source extractor photometry file for stars within the ranges of magmin-magmax, xmin-xmax, ymin-ymax,
     mincounts-maxcounts. Plot 3D cutouts of each star which qualifies, prompt user for ID of selected star.
     Fit the selected star with a 2D-gaussian function, implant nstars # of artificial stars randomly into the image.
     Output coordinates of artificial stars into artfile, and image with artificial stars as artimage.
     """
-    sextable = ascii.read(sexfile, format='sextractor')
 
+    # open source extrator file as ascii table
+    sextable = ascii.read(sexfile, format='sextractor')
+    # retrieve fits data from image
     with fits.open(image) as hdu:
         imgdata = hdu[0].data
 
+    # parse for stars in source extractor table with parameters in range of those specified
     stars_inx = sextable[(xmin < sextable['X_IMAGE']) & (sextable['X_IMAGE'] < xmax)]
     stars_inxy = stars_inx[(ymin < stars_inx['Y_IMAGE']) & (stars_inx['Y_IMAGE'] < ymax)]
     stars_mag = stars_inxy[(magmin < stars_inxy['MAG_APER']) & (stars_inxy['MAG_APER'] < magmax)]
-
     stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
 
+    # If a particular star is not specified in the command line, plot potential stars until one chosen
+    print 'Finding star PSFs to model, type any string to kill'
     if star_idx is None:
         star_idx = False
         i = 0
+        counter = 0  # not used for anything except having something in the exception line
+        print '   idx     x [pix]   y [pix]   mag   chi2/dof'
         while not star_idx:
             x, y = stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
             cutout = imgdata[int(y - s / 2.):int(y + s / 2.), int(x - s / 2.):int(x + s / 2.)]
 
             if (np.min(cutout) > mincounts) & (np.max(cutout) < maxcounts) & (np.max(cutout) > min_maxcounts):
-                print i, stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
 
-                if toplot:
-                    fig = plt.figure()
-                    ax = fig.add_subplot(121, projection='3d')
+                try:  # use a try/except statements to avoid errors if fit fails, just skip those unable to be fit
+                    # fit the data in the cutout with a 2d gaussian
                     xx, yy = np.meshgrid(np.arange(s), np.arange(s))
-                    ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
-                    ax = fig.add_subplot(122)
-                    ax.imshow(np.log(imgdata), cmap=plt.cm.jet)
-                    ax.scatter(sextable['X_IMAGE'],sextable['Y_IMAGE'],marker='x', color='g')
-                    ax.scatter(x,y,marker='o', color='k')
-                    ax.set_xlim([int(x - s / 2.),int(x + s / 2.)])
-                    ax.set_ylim([int(y - s / 2.),int(y + s / 2.)])
-                    plt.show()
-                else:
-                    fig = plt.figure()
-                    ax = fig.add_subplot(111, projection='3d')
-                    xx, yy = np.meshgrid(np.arange(s), np.arange(s))
-                    ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
-                    plt.show()
+                    popt, pcov = curve_fit(gaussian_2d, (xx, yy), cutout.ravel(),
+                                           p0=[np.max(cutout), s / 2., s / 2., s / 2., s / 2., 0., 0.])
+                    data_fitted = gaussian_2d((xx, yy), *popt)  # .reshape(s, s)
 
-                star_idx = raw_input('Star index: ')
+                    # determine "goodness of fit" by chi square statistic
+                    dof = len(data_fitted) + len(popt)
+                    chi2, p = chisquare(data_fitted, cutout.ravel(), ddof=dof)
+
+                    # only consider those with chi squares less than user specifed value
+                    if np.abs(chi2 / dof) < chi2max:
+
+                        print '{} {} {} {} {}'.format(i, stars['X_IMAGE'][i], stars['Y_IMAGE'][i], stars['MAG_APER'][i],
+                                                      np.abs(chi2 / dof))
+
+                        if toplot:
+                            fig = plt.figure()
+                            ax = fig.add_subplot(121, projection='3d')
+                            xx, yy = np.meshgrid(np.arange(s), np.arange(s))
+                            ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                            ax = fig.add_subplot(122)
+                            ax.imshow(np.log(imgdata), cmap=plt.cm.jet)
+                            ax.scatter(sextable['X_IMAGE'], sextable['Y_IMAGE'], marker='x', color='g')
+                            ax.scatter(x, y, marker='o', color='k')
+                            ax.set_xlim([int(x - s / 2.), int(x + s / 2.)])
+                            ax.set_ylim([int(y - s / 2.), int(y + s / 2.)])
+                            plt.show()
+                        else:
+                            fig = plt.figure()
+                            ax = fig.add_subplot(111, projection='3d')
+                            xx, yy = np.meshgrid(np.arange(s), np.arange(s))
+                            ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                            plt.show()
+
+                        star_idx = raw_input('Star index: ')
+
+                except:
+                    counter += 1
             i += 1
 
-    star = stars[int(star_idx)]
+    try:
+        star = stars[int(star_idx)]
+    except:
+        raise Exception, 'Invalid star index specified'
 
+    # cutout a region around the chosen star
     x, y = star['X_IMAGE'], star['Y_IMAGE']
     cutout = imgdata[int(y - s / 2.):int(y + s / 2.), int(x - s / 2.):int(x + s / 2.)]
 
+    # fit a 2D gaussian to the data
     xx, yy = np.meshgrid(np.arange(s), np.arange(s))
     popt, pcov = curve_fit(gaussian_2d, (xx, yy), cutout.ravel(),
                            p0=[np.max(cutout), s / 2., s / 2., s / 2., s / 2., 0., 0.])
@@ -230,11 +265,12 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         data_fitted = gaussian_2d((xx, yy), *popt).reshape(s, s)
         fig = plt.figure()
         ax = fig.add_subplot(131)
-        ax.imshow(np.log(imgdata), cmap=plt.cm.jet, origin='bottom')#, extent=(xx.min(), xx.max(), yy.min(), yy.max()))
-        ax.scatter(sextable['X_IMAGE'],sextable['Y_IMAGE'],marker='x', color='g')
-        ax.scatter(x,y,marker='o', color='k')
-        ax.set_xlim([int(x - s / 2.),int(x + s / 2.)])
-        ax.set_ylim([int(y - s / 2.),int(y + s / 2.)])
+        ax.imshow(np.log(imgdata), cmap=plt.cm.jet,
+                  origin='bottom')  # , extent=(xx.min(), xx.max(), yy.min(), yy.max()))
+        ax.scatter(sextable['X_IMAGE'], sextable['Y_IMAGE'], marker='x', color='g')
+        ax.scatter(x, y, marker='o', color='k')
+        ax.set_xlim([int(x - s / 2.), int(x + s / 2.)])
+        ax.set_ylim([int(y - s / 2.), int(y + s / 2.)])
         ax = fig.add_subplot(132)
         ax.hold(True)
         ax.imshow(cutout, cmap=plt.cm.jet, origin='bottom', extent=(xx.min(), xx.max(), yy.min(), yy.max()))
@@ -244,7 +280,7 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         ax.plot_wireframe(xx, yy, data_fitted, rstride=1, cstride=1, color='red')
         plt.show()
 
-    # amplitude, xo, yo, sigma_x, sigma_y, theta, offset
+    # create a 2D gaussian with (optimized) parameters returned from the fit, but centered
     star_centered = gaussian_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], popt[6]).reshape(s, s)
 
     if toplot:
@@ -253,9 +289,11 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         ax.plot_wireframe(xx, yy, star_centered, rstride=1, cstride=1, color='red')
         plt.show()
 
-    x = random_sample(nstars, sextable['X_IMAGE'])
-    y = random_sample(nstars, sextable['Y_IMAGE'])
+    # create random number of stars
+    x = random_sample(nstars, sextable['X_IMAGE'], min=xmin, max=xmax)
+    y = random_sample(nstars, sextable['Y_IMAGE'], min=ymin, max=ymax)
 
+    # implant the gaussian "artificial star" at each location
     art_imgdata = imgdata
     for n in range(nstars):
         art_imgdata[y[n] - s / 2.:y[n] + s / 2., x[n] - s / 2.:x[n] + s / 2.] += star_centered
