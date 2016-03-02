@@ -12,14 +12,7 @@ from matplotlib.colors import LogNorm
 """
 Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
 
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_21p0074.art{}.fits -mags 21.006 21.1007
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_21p5337.art{}.fits -mags 21.5336 21.5338 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_22p0609.art{}.fits -mags 22.0608 22.061 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_22p0963.art{}.fits -mags 22.0962 22.0964 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_22p2896.art{}.fits -mags 22.2895 22.2897 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_22p6087.art{}.fits -mags 22.6086 22.6088 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_22p6291.art{}.fits -mags 22.6290 22.6292 --maxmagerr 0.1
-python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_23p1608.art{}.fits -mags 23.1607 23.1609 --maxmagerr 0.2
+python addstar.py -sf phot_t3/CB68_J_sex_t3_ap30.txt -img CB68/CB68_J_sub.fits -artimg mag_lim/CB68_J_sub_21p0074_lor.art{}.fits -mags 21.006 21.1007 --function lorentz
 
 sex -c phot_t3.sex ../mag_lim/CB68_J_sub_21p0074.art1.fits -CATALOG_NAME ../mag_lim/CB68_J_sex_21p0074.art1.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
 sex -c phot_t3.sex ../mag_lim/CB68_J_sub_21p0074.art2.fits -CATALOG_NAME ../mag_lim/CB68_J_sex_21p0074.art2.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
@@ -28,13 +21,6 @@ sex -c phot_t3.sex ../mag_lim/CB68_J_sub_21p0074.art4.fits -CATALOG_NAME ../mag_
 sex -c phot_t3.sex ../mag_lim/CB68_J_sub_21p0074.art5.fits -CATALOG_NAME ../mag_lim/CB68_J_sex_21p0074.art5.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705
 
 python addstar.py -artsf mag_lim/CB68_J_sex_21p0074.art{}.txt --mag 21.0074
-python addstar.py -artsf mag_lim/CB68_J_sex_21p5337.art{}.txt --mag 21.5337
-python addstar.py -artsf mag_lim/CB68_J_sex_22p0609.art{}.txt --mag 22.0609
-python addstar.py -artsf mag_lim/CB68_J_sex_22p0963.art{}.txt --mag 22.0963
-python addstar.py -artsf mag_lim/CB68_J_sex_22p2896.art{}.txt --mag 22.2896
-python addstar.py -artsf mag_lim/CB68_J_sex_22p6087.art{}.txt --mag 22.6087
-python addstar.py -artsf mag_lim/CB68_J_sex_22p6291.art{}.txt --mag 22.6291
-python addstar.py -artsf mag_lim/CB68_J_sex_23p1608.art{}.txt --mag 23.1608
 
 """
 
@@ -172,7 +158,7 @@ def main():
         artsexfiles = []
         for i, artfile in enumerate(args.artfiles):
             artsexfiles.append(args.artsexfile.format(i + 1))
-        find_art_stars(artsexfiles, args.artfiles, args.mag, args.toplot)
+        find_art_stars(artsexfiles, args.artfiles, args.mag, toplot=args.toplot)
 
 
 def find_art_stars(artsexfiles, artfiles, mag=None, max_sep=2., toplot=False):
@@ -205,7 +191,7 @@ def find_art_stars(artsexfiles, artfiles, mag=None, max_sep=2., toplot=False):
         print '{}/{} recovered'.format(len(idx_found),len(x_pix))
 
         ax = fig.add_subplot(1, N, j+1)
-        ax.hist(stars['MAG_APER'][stars_idx], 100, color='b', alpha=0.5, label='{}/{} recovered'.format(len(idx_found),len(x_pix)))
+        ax.hist(stars['MAG_APER'][stars_idx], 100, color='b', alpha=0.5, label='{}/{}'.format(len(idx_found),len(x_pix)))
         ax.axvline(mag, 0, 10, color='r', label='PSF mag {}'.format(mag))
         ax.legend()
         ax.set_xlim(17, 24)
@@ -213,8 +199,8 @@ def find_art_stars(artsexfiles, artfiles, mag=None, max_sep=2., toplot=False):
     print '{}/{} recovered, {} percent'.format(n_found, n_art, n_found / n_art * 100.)
 
     plt.tight_layout()
-    print '  Writing to {}'.format(artsexfile[0].replace('.coo', '.png').format(''))
-    plt.savefig(artsexfile[0].replace('.coo', '.png').format(''))
+    print '  Writing to {}'.format(artsexfile.replace('.txt', '.png').format(''))
+    plt.savefig(artsexfile.replace('.art5.txt', '.png').format(''))
     if toplot:
         plt.show()
 
@@ -361,15 +347,19 @@ def addstar(sexfile, image, artfiles, artimages, (magmin, magmax), star_idx=None
         plt.show()
 
     for i, artfile in enumerate(artfiles):
+        # for testing only
+        # dx, dy = np.where(cutout == cutout.max())
+        # star_centered = imgdata[int(y+dy - s / 2.):int(y+dy + s / 2.), int(x+dx - s / 2.):int(x+dx + s / 2.)] - popt[6]
+
         # implant the gaussian "artificial star" at each location
-        x, y = np.loadtxt(artfile, unpack=True, delimiter=' ')
+        x_art, y_art = np.loadtxt(artfile, unpack=True, delimiter=' ')
         art_imgdata = imgdata
-        for n in range(len(x)):
-            art_imgdata[y[n] - s / 2.:y[n] + s / 2., x[n] - s / 2.:x[n] + s / 2.] += star_centered
+        for n in range(len(x_art)):
+            art_imgdata[y_art[n] - s / 2.:y_art[n] + s / 2., x_art[n] - s / 2.:x_art[n] + s / 2.] += star_centered
 
         if toplot:
             plt.imshow(art_imgdata, origin='bottom', norm=LogNorm())
-            plt.scatter(x, y, marker='x', color='k')
+            plt.scatter(x_art, y_art, marker='x', color='k')
             plt.show()
 
         print '  Writing image with artificial stars'
