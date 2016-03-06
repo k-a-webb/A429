@@ -26,17 +26,44 @@ python addstar.py -artsf mag_lim/CB68_J_sex_21p0074.art{}.txt --mag 21.0074
 
 _SEXFILE = 'phot_t3/CB68_J_sex_t3_ap30.txt'
 _IMAGE = 'CB68/CB68_J_sub.fits'
-_MAGRANGE = [21.0, 21.5]
-_MAG = None
 _ARTIMAGE = 'mag_lim/CB68_J_sub_temp.art{}.fits'
+_STAR_INDICES = [None, None, None, None, None, None, None, None, None, None, None, None]
+_MAGS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+_MAXMAGERR = 0.06
 
-_ARTSEXFILE = ['CB68_J_sex_{}.art1.txt', 'CB68_J_sex_{}.art2.txt', 'CB68_J_sex_{}.art3.txt', 'CB68_J_sex_{}.art4.txt',
-               'CB68_J_sex_{}.art5.txt']
+# _MAGRANGE = [21.0, 21.5]
+# _STAR_INDICES = [2,3,4,7,5,7,7,1,2, 2,10,12]
+# _MAGS = [21.1269,21.0681,21.1589,21.1441,21.0893,21.2558,21.0657,21.1308,21.1766,21.0787,21.2691,21.1766]
+# _MAXMAGERR = 0.03
+
+# _MAGRANGE = [21.5, 22.]
+# _STAR_INDICES = [4, 2, 3, 4, 3, 7, 8, 3, 2, 5, 2, 1]
+# _MAGS = [21.7131, 21.6848, 21.5841, 21.5804, 21.5654, 21.5035, 21.6421, 21.6441, 21.7821, 21.5449, 21.7918, 21.6072]
+# _MAXMAGERR = 0.05
+
+# _MAGRANGE = [22., 22.5]
+# _STAR_INDICES = [0,0,0,2,1,0,1,1,0,1,1,0]
+# _MAGS = [22.0183, 22.067, 22.0456, 22.0486, 22.0165, 22.0436, 22.0496, 22.0325, 22.1663, 22.0496, 22.2055, 22.0092]
+# _MAXMAGERR = 0.06
+
+# _MAGRANGE = [22.5, 23.]
+# _STAR_INDICES = [0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0]
+# _MAGS = [22.6074, 22.5360, 22.6229, 22.5411, 22.5966, 22.6141, 22.56, 22.5042, 22.5526, 22.562, 22.5042, 22.969]
+# MAXMAGERR = 0.06
+
+_MAGRANGE = [23., 25.]
+# art5 looks waaaay to high
+_STAR_INDICES = [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+_MAGS = [23.1053, 23.1185, 23.0592, 23.1472, 23.5124, 23.03, 23.0679, 23.016, 23.0441, 23.2377, 23.016, 23.3859]
+_MAXMAGERR = 0.06
+
+# 10 seems to vary a lot
 _ARTFILES = ['mag_lim/art1.coo', 'mag_lim/art2.coo', 'mag_lim/art3.coo', 'mag_lim/art4.coo', 'mag_lim/art5.coo',
              'mag_lim/art6.coo', 'mag_lim/art7.coo', 'mag_lim/art8.coo', 'mag_lim/art9.coo', 'mag_lim/art10.coo',
              'mag_lim/art11.coo', 'mag_lim/art12.coo']
-_STAR_INDEX = None
-#               1                 2            3              4              5                6             7             8              9              10            11              12
+
+#               1                2              3               4              5                6                 7
+#               8                9              10              11             12
 _XRANGE = [[700., 2000.], [2100., 3400.], [3600., 4800.], [700., 2000.], [2100., 3400.], [3600., 4800.], [700., 2000.],
            [2100., 3400.], [3600., 4800.], [700., 2000.], [2100., 3400.], [3600., 4800.]]
 _YRANGE = [[3800., 4600.], [3800., 4600.], [3800., 4600.], [2800., 3600.], [2800., 3600.], [2800., 3600.],
@@ -47,10 +74,13 @@ _MAXCOUNTS = np.inf
 _MINCOUNTS = -np.inf
 _MIN_MAXCOUNTS = -np.inf
 _TOPLOT = False
-_MAXMAGERR = 0.01
 _CHI2MAX = 100.
 _FUNCTION = 'gauss'
-_ARTPNG = ['CB68_J_sex_{}.png'.format(_MAG)]
+
+# _ARTSEXFILE = None
+_ARTSEXFILE = 'mag_lim/CB68_J_sex_{}.art{}.txt'
+# _ARTSEXFILE = _SEXFILE
+_ARTPNG = 'mag_lim/CB68_J_sex_{}_art.png'
 
 
 def main():
@@ -66,127 +96,6 @@ def main():
     #          [30 + 0.605746118244, 30 + 1.07900318805, 30 + 0.859804630004, 30 + 0.208893637398],
     #          [30 + 0.466909777698, 30 + 0.776624355589, 30 + 0.552873836659, 30 - 1.14661744067]]
 
-    # parser = argparse.ArgumentParser(
-    #     description='Generate a PSF model from a ideal star, implant nstars number into the given image. Determine the number of artificial stars recovered.')
-    # parser.add_argument("--sexfile", '-sf',
-    #                     action='store',
-    #                     default=None,
-    #                     help='Source extractor file.')
-    # parser.add_argument("--image", '-img',
-    #                     action='store',
-    #                     default=None,
-    #                     help="Fits image file.")
-    # parser.add_argument("--artimage", '-artimg',
-    #                     action='store',
-    #                     default=None,
-    #                     help='Output images format with artificial stars added.')
-    # parser.add_argument("--magrange", '-mags',
-    #                     nargs='*',
-    #                     action='store',
-    #                     type=float,
-    #                     default=None,
-    #                     help='Magnitude range of stars, must be a list of floats separated by a space, eg "18. 19.".')
-    # parser.add_argument("--artsexfile", '-artsf',
-    #                     action='store',
-    #                     default=None,
-    #                     help='Source extractor file with artificial stars. Used in second function only.')
-    #
-    # # Optional, note default values
-    # parser.add_argument("--artfiles", '-artfiles',
-    #                     nargs='*',
-    #                     action='store',
-    #                     default=['mag_lim/art1.coo', 'mag_lim/art2.coo', 'mag_lim/art3.coo', 'mag_lim/art4.coo',
-    #                              'mag_lim/art5.coo'],
-    #                     help='List of output file of coordinates of artificial stars. Must be same length as artimages')
-    # parser.add_argument("--star_idx", '-si',
-    #                     action='store',
-    #                     default=None,
-    #                     help='Index of star with PSF chosen to build model from, WARNING: index will be from cropped table of stars in range of specified parameters. Default: None')
-    # parser.add_argument("--xrange", '-xs',
-    #                     nargs='*',
-    #                     action='store',
-    #                     type=float,
-    #                     default=(600., 4800.),
-    #                     help='x range [pixels], Default: 600. 4800.')
-    # parser.add_argument("--yrange", '-ys',
-    #                     nargs='*',
-    #                     action='store',
-    #                     type=float,
-    #                     default=(600., 4800.),
-    #                     help='y range [pixels], Default: 600. 4800.')
-    # parser.add_argument("--dimension", '-d',
-    #                     action='store',
-    #                     default=25.,
-    #                     type=float,
-    #                     help='Dimension of PSF box, Default: 25.')
-    # parser.add_argument("--nstars", '-n',
-    #                     action='store',
-    #                     default=100,
-    #                     type=int,
-    #                     help='Number of artificial stars to add. Default: 100')
-    # parser.add_argument("--maxcounts",
-    #                     action='store',
-    #                     type=float,
-    #                     default=np.inf,
-    #                     help='Select only stars with counts less than this value [counts]. Default: inf')
-    # parser.add_argument("--mincounts",
-    #                     action='store',
-    #                     type=float,
-    #                     default=-np.inf,
-    #                     help='Select only stars with counts greater than this value [counts]. Default: -inf')
-    # parser.add_argument("--min_maxcounts",
-    #                     action='store',
-    #                     default=-np.inf,
-    #                     help='Select only stars with maximum counts greater than this value [counts]. Default: -inf')
-    # parser.add_argument("--toplot",
-    #                     action='store',
-    #                     default=False,
-    #                     help='True: plot all figures, False: plot only when finding PSF star. Default: False')
-    # parser.add_argument("--mag",
-    #                     action='store',
-    #                     default=None,
-    #                     help='Magnitude of chosen PSF star. Used for plotting purposes only. Default: None')
-    # parser.add_argument("--maxmagerr",
-    #                     action='store',
-    #                     default=0.05,
-    #                     help='Maximum err level to continue, percent eg 0.05 is 5 percent. Default: 0.05')
-    # parser.add_argument("--function",
-    #                     action='store',
-    #                     default='gauss',
-    #                     help='Function used to fit PSF. Options "gauss", "lorentz". Default: gauss')
-    # parser.add_argument("--chi2max",
-    #                     action='store',
-    #                     default=100.,
-    #                     help='Only display PSFs which have a chi2 less than this value when fitting a 2d gaussian. Default: 100')
-    # args = parser.parse_args()
-    #
-    # if args.artsexfile is None:
-    #     if args.artimage is None:
-    #         raise Exception, 'No output image file format is given'
-    #     artimages = []
-    #     for i, artfile in enumerate(args.artfiles):
-    #         if not os.path.exists(artfile):
-    #             generate_coords(artfile, int(args.nstars), args.xrange, args.yrange)
-    #         artimages.append(args.artimage.format(i + 1))
-    #     if args.sexfile is None:
-    #         raise Exception, 'No input source extractor file given'
-    #     if args.image is None:
-    #         raise Exception, 'No input image file given'
-    #     if args.magrange is None:
-    #         raise Exception, 'No magnitude range given'
-    #     assert len(args.magrange) == 2, 'Magnitude input is two values, min and max'
-    #     assert args.function == 'gauss' or args.function == 'lorentz', 'ERROR: function not "gauss" or "lorentz"'
-    #
-    #     addstar(args.sexfile, args.image, args.artfiles, artimages, args.magrange, args.star_idx,
-    #             args.dimension, args.xrange, args.yrange, float(args.mincounts),
-    #             float(args.maxcounts), float(args.min_maxcounts), args.toplot, mag_limit=float(args.maxmagerr),
-    #             chi2max=float(args.chi2max), function=args.function)
-    #
-    # if args.artsexfile is not None:
-    #     artsexfiles = []
-    #     for i, artfile in enumerate(args.artfiles):
-    #         artsexfiles.append(args.artsexfile.format(i + 1))
-    #     find_art_stars(artsexfiles, args.artfiles, args.mag, toplot=args.toplot)
 
     if _ARTSEXFILE is None:
         if _ARTIMAGE is None:
@@ -194,7 +103,7 @@ def main():
         artimages = []
         for i, artfile in enumerate(_ARTFILES):
             if not os.path.exists(artfile):
-                generate_coords(artfile, int(_NSTARS), _XRANGE, _YRANGE)
+                generate_coords(artfile, int(_NSTARS), _XRANGE[i], _YRANGE[i])
             artimages.append(_ARTIMAGE.format(i + 1))
         if _SEXFILE is None:
             raise Exception, 'No input source extractor file given'
@@ -205,81 +114,136 @@ def main():
         assert len(_MAGRANGE) == 2, 'Magnitude input is two values, min and max'
         assert _FUNCTION == 'gauss' or _FUNCTION == 'lorentz', 'ERROR: function not "gauss" or "lorentz"'
 
-        for i in len(_XRANGE):
-            addstar(_SEXFILE, _IMAGE, _ARTFILES[i], ARTIMAGES[i], _MAGRANGE, _STAR_IDX, _DIMENSION, _XRANGE[i],
-                    _YRANGE[i], float(_MINCOUNTS), float(_MAXCOUNTS), float(_MIN_MAXCOUNTS), _TOPLOT,
-                    mag_limit=float(_MAXMAGERR), chi2max=float(_CHI2MAX), function=_FUNCTION)
+        indices = []
+        magnitudes = []
+
+        print '*********************************************************************'
+        print '**                           ADDSTAR                               **'
+        print '*********************************************************************'
+
+        for i in range(len(_XRANGE)):
+            idx, mag = addstar(_SEXFILE, _IMAGE, _ARTFILES[i], artimages[i], _MAGRANGE, _STAR_INDICES[i], _XRANGE[i],
+                               _YRANGE[i], float(_MAXMAGERR), float(_CHI2MAX), float(_MINCOUNTS), float(_MAXCOUNTS),
+                               float(_MIN_MAXCOUNTS), _DIMENSION, _FUNCTION, _TOPLOT)
+            indices.append(idx)
+            magnitudes.append(mag)
+
+        print indices
+        print magnitudes
+
+        # with open('phot_t3/runartsex.sh', 'a') as outfile:
+        #     for i in range(len(_XRANGE)):
+        #         magstr = str(_MAGS[i]).replace('.', 'p')
+        #         outfile.write('sex -c phot_t3.sex ../mag_lim/CB68_J_sub_{}.art{}.fits -CATALOG_NAME ../mag_lim/CB68_J_sex_{}.art{}.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 29.80705 \n'.format(magstr, i+1, magstr, i+1))
 
     if _ARTSEXFILE is not None:
+
+        artpngs = []
         artsexfiles = []
-        for i, artfile in enumerate(_ARTFILES):
-            artsexfiles.append(_ARTSEXFILE.format(i + 1))
-        find_art_stars(ARTSEXFILES, _ARTFILES, _MAG, toplot=_TOPLOT, writeto=_ARTPNG)
+        for i, mag in enumerate(_MAGS):
+            magstr = str(mag).replace('.', 'p')
+            artsexfiles.append(_ARTSEXFILE.format(magstr, i + 1))
+            artpngs.append(_ARTPNG.format(magstr, i + 1))
+
+        magstr = '{:<2.4f}'.format(np.mean(_MAGS)).replace('.', 'p')
+        fig_regions = _ARTPNG.format(magstr + '_each')
+        fig_all = _ARTPNG.format(magstr + '_all')
+        find_art_stars_allregions(artsexfiles, _ARTFILES, _MAGS, _TOPLOT, fig_regions, fig_all)
 
 
-def find_art_stars(artsexfiles, artfiles, mag=None, max_sep=2., toplot=False, writeto=None):
+def find_art_stars_allregions(artsexfiles, artfiles, mags, toplot, fig_regions, fig_all):
+    allartmags = np.array([])
+    recovered = []
+    artmagdiff = []
+
+    fig = plt.figure(figsize=(10, 10))
+    for i, artsexfile in enumerate(artsexfiles):
+        ax = fig.add_subplot(4, 3, i + 1)
+
+        artmags, recov, magdiff = find_art_stars(artsexfile, artfiles[i], mags[i], toplot=toplot, writeto=toplot)
+
+        if len(artmags) > 1:
+            n, bins, patches = plt.hist(artmags, 50, color='b', alpha=0.5, label='{:<2.1f}%'.format(recov * 100.))
+        ax.axvline(np.mean(artmags), color='k', label='mean {:<4.3}'.format(np.mean(artmags)))
+        ax.axvline(mags[i], 0, 10, color='r', label='PSF mag {}'.format(mags[i]))
+        ax.legend(loc=0, fontsize='small')
+        ax.set_xlim(17, 24)
+
+        allartmags = np.concatenate((allartmags, artmags))
+        recovered.append(recov)
+        artmagdiff.append(magdiff)
+
+    plt.savefig(fig_regions)
+    plt.show()
+
+    plt.hist(allartmags, 50, color='b', alpha=0.5, label=str(np.sum(recovered * 100) / 12))
+    for mag in mags:
+        plt.axvline(mag, 0, 10, color='r')
+    plt.xlim(17, 24)
+    plt.savefig(fig_all)
+    plt.legend()
+    plt.show()
+
+    print '  Recovered {}%'.format(np.sum(recovered * 100) / 12)
+    print '  Mean magnitude offset {}'.format(np.nanmean(artmagdiff))
+
+
+def find_art_stars(artsexfile, artfile, mag=None, max_sep=2., toplot=False, writeto=None):
     # fig = plt.figure(figsize=(16,8))
     n_art = 0.
     n_found = 0.
-    N = 0
-    for str in artsexfiles:
-        N += 1
 
-    mags = np.array([])
-    magerrs = np.array([])
+    # for j, artsexfile in enumerate(artsexfiles):
+    sex = ascii.read(artsexfile, format='sextractor')
+    x_pix, y_pix = np.loadtxt(artfile, unpack=True)
+    n_art += len(x_pix)
 
-    for j, artsexfile in enumerate(artsexfiles):
-        sex = ascii.read(artsexfile, format='sextractor')
-        x_pix, y_pix = np.loadtxt(artfiles[j], unpack=True)
-        n_art += len(x_pix)
+    stars = sex[sex['MAG_APER'] < 99.]
 
-        stars = sex[sex['MAG_APER'] < 99.]
+    tree = KDTree(zip(stars['X_IMAGE'].ravel(), stars['Y_IMAGE'].ravel()))
 
-        tree = KDTree(zip(stars['X_IMAGE'].ravel(), stars['Y_IMAGE'].ravel()))
+    idx_found = []
+    stars_idx = []
+    for i in range(len(x_pix)):
+        d, idx = tree.query((x_pix[i], y_pix[i]))
+        if d < max_sep:
+            idx_found.append(i)
+            stars_idx.append(idx)
+    if len(idx_found) == 0:
+        print 'WARNING: No artificial stars found'
+    # assert len(idx_found) > 0, 'No artificial stars found'
+    n_found += len(idx_found)
 
-        idx_found = []
-        stars_idx = []
-        for i in range(len(x_pix)):
-            d, idx = tree.query((x_pix[i], y_pix[i]))
-            if d < max_sep:
-                idx_found.append(i)
-                stars_idx.append(idx)
-        if len(idx_found) == 0:
-            print 'WARNING: No artificial stars found'
-        # assert len(idx_found) > 0, 'No artificial stars found'
-        n_found += len(idx_found)
+    print '>> {}/{} recovered'.format(len(idx_found), len(x_pix))
 
-        print '{}/{} recovered'.format(len(idx_found), len(x_pix))
-        mags = np.concatenate((mags, stars['MAG_APER'][stars_idx].data))
-        magerrs = np.concatenate((magerrs, stars['MAGERR_APER'][stars_idx].data))
+    mags = stars['MAG_APER'][idx_found]
 
-    recovered = 'recovered {:<2.1f}%'.format(n_found / n_art * 100.)
-    print recovered
-    mags_avg = np.average(mags, weights=magerrs ** -2)
     mags_mean = np.mean(mags)
-    print 'Mean magnitude measured, {:<2.3}'.format(mags_mean)
-    print 'Magnitude shift, mag-mag_avg={:<2.3}'.format(float(mag) - mags_mean)
+    print '  Mean magnitude measured, {:<2.3}'.format(mags_mean)
+    print '  Magnitude shift, mag-mag_avg={:<2.3}'.format(float(mag) - mags_mean)
 
-    n, bins, patches = plt.hist(mags, 50, color='b', alpha=0.5, label=recovered)
-    plt.axvline(mags_mean, color='k', label='mean {:<2.3}'.format(mags_mean))
-    plt.axvline(mags_avg, color='k', label='weighted mean {:<2.3}'.format(mags_avg))
-    plt.axvline(mag, 0, 10, color='r', label='PSF mag {:<2.3}'.format(mag))
-    plt.legend(loc=0)
-    plt.xlim(17, 24)
-    plt.tight_layout()
+    if toplot or writeto:
 
-    if writeto is None:
-        writeto = artsexfile.replace('.art1.txt', '.png').format('')
+        n, bins, patches = plt.hist(mags, 50, color='b', alpha=0.5, label=recovered)
+        plt.axvline(mags_mean, color='k', label='mean {:<4.3}'.format(mags_mean))
+        plt.axvline(mag, 0, 10, color='r', label='PSF mag {}'.format(mag))
+        plt.legend(loc=0)
+        plt.xlim(17, 24)
+        # plt.tight_layout()
 
-    print '  Writing to {}'.format(writeto)
-    plt.savefig(writeto)
-    if toplot:
-        plt.show()
+        if writeto is None:
+            writeto = artsexfile.replace('.art1.txt', '.png').format('')
+            print '  Writing to {}'.format(writeto)
+            plt.savefig(writeto)
+        if toplot:
+            plt.show()
+
+    return mags, n_found / n_art, float(mag) - mags_mean
 
 
-def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, s=25.,
-            (xmin, xmax)=(600., 4800.), (ymin, ymax)=(600., 4800.), mincounts=-np.inf,
-            maxcounts=np.inf, min_maxcounts=-np.inf, toplot=False, mag_limit=0.01, chi2max=100., function='gauss'):
+def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, (xmin, xmax)=(600., 4800.),
+            (ymin, ymax)=(600., 4800.), mag_limit=0.01, chi2max=100., mincounts=-np.inf, maxcounts=np.inf,
+            min_maxcounts=-np.inf, s=25., function='gauss', toplot=False):
     """
     Parse source extractor photometry file for stars within the ranges of magmin-magmax, xmin-xmax, ymin-ymax,
     mincounts-maxcounts. Plot 3D cutouts of each star which qualifies, prompt user for ID of selected star.
@@ -300,21 +264,29 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     assert len(stars_inxy) != 0, 'ERROR: No stars found within, yrange'
     stars_mag = stars_inxy[(magmin < stars_inxy['MAG_APER']) & (stars_inxy['MAG_APER'] < magmax)]
     assert len(stars_mag) != 0, 'ERROR: No stars found within magrange'
-    stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
+
+    success = False
+    while not success:
+        stars = stars_mag[(stars_mag['MAGERR_APER'] / stars_mag['MAG_APER']) < mag_limit]
+        if len(stars) > 0:
+            success = True
+        else:
+            mag_limit += 0.01
     assert len(stars) != 0, 'ERROR: No stars found within magerr limit'
 
     if np.shape(stars)[0] == 1:
         star_idx = 0.
         print 'WARNING: Only one star found, turning plotting on'
         # toplot = True
+    print '>>  {} Stars found'.format(np.shape(stars)[0])
 
     # If a particular star is not specified in the command line, plot potential stars until one chosen
-    print 'Finding star PSFs to model: type a number to select the corresponding indexed star, "enter" to continue, any string to kill'
+    print '  Finding star PSFs to model: type a number to select the corresponding indexed star, "enter" to continue, any string to kill'
     if star_idx is None:
         star_idx = False
         i = 0
         counter = 0  # not used for anything except having something in the exception line
-        print '   idx     x [pix]   y [pix]   mag   chi2/dof   counts'
+        print '    idx      x [pix]    y [pix]    mag    chi2/dof'
         while not star_idx:
             x, y = stars['X_IMAGE'][i], stars['Y_IMAGE'][i]
             cutout = imgdata[int(y - s / 2.):int(y + s / 2.), int(x - s / 2.):int(x + s / 2.)]
@@ -342,12 +314,13 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
                     if np.abs(chi2 / dof) < chi2max:
                         print '{} {} {} {} {}'.format(i, stars['X_IMAGE'][i], stars['Y_IMAGE'][i], stars['MAG_APER'][i],
                                                       np.abs(chi2 / dof), np.max(cutout))
-                        if toplot:
-                            fig = plt.figure()
-                            ax = fig.add_subplot(111, projection='3d')
-                            xx, yy = np.meshgrid(np.arange(s), np.arange(s))
-                            ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
-                            plt.show()
+
+                        fig = plt.figure()
+                        ax = fig.add_subplot(111, projection='3d')
+                        xx, yy = np.meshgrid(np.arange(s), np.arange(s))
+                        ax.plot_wireframe(xx, yy, cutout, rstride=1, cstride=1)
+                        plt.show()
+
                         star_idx = raw_input('Star index: ')
                 except:
                     counter += 1
@@ -386,8 +359,8 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
         data_fitted = lorentz_2d((xx, yy), *popt).reshape(s, s)
         star_centered = lorentz_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], 0.).reshape(s, s)
 
-    print '  max counts: star, model:  '
-    print '              {}  {}'.format(np.max(cutout), popt[0])
+    print '  Optimal parameters, A, x0, y0, sigma_x, sigma_y, theta, offset:  '
+    print '    {} {} {} {} {} {} {}'.format(popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6])
     print '*******'
 
     if toplot:
@@ -424,6 +397,8 @@ def addstar(sexfile, image, artfile, artimage, (magmin, magmax), star_idx=None, 
     hdu = fits.PrimaryHDU(1)
     hdu.data = art_imgdata
     hdu.writeto(outimage, clobber=True)
+
+    return int(star_idx), star['MAG_APER']
 
 
 def generate_coords(artfile, nstars=100., (xmin, xmax)=(600., 4800.), (ymin, ymax)=(600., 4800.)):
