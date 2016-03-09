@@ -41,7 +41,6 @@ from scipy.spatial import KDTree
 from astropy.io import ascii
 
 
-
 def main():
     parser = argparse.ArgumentParser(
         description='For photometry output from sextractor for 3 bands, compile magnitude arrays into singe file')
@@ -73,6 +72,7 @@ def main():
                         help='Plot figures.')
     args = parser.parse_args()
 
+
     if args.outfig is None:
         print 'Warning: No output figure specified'
 
@@ -91,6 +91,13 @@ def main():
         phot_j = phot_curves.remove_saturated(fits_j, sexfile_j)
         phot_ks = phot_curves.remove_saturated(fits_ks, sexfile_ks)
         phot_h = phot_curves.remove_saturated(fits_h, sexfile_h)
+
+        i_j = phot_curves.half_light(phot_j['MAG_APER'], phot_j['FLUX_RADIUS'], toplot=False)
+        phot_j = phot_j[i_j]
+        i_k = phot_curves.half_light(phot_ks['MAG_APER'], phot_ks['FLUX_RADIUS'], toplot=False)
+        phot_ks = phot_ks[i_k]
+        i_h = phot_curves.half_light(phot_h['MAG_APER'], phot_h['FLUX_RADIUS'], toplot=False)
+        phot_h = phot_h[i_h]
 
         # match the stars in each source extractor file by nearest neighbour
         mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
@@ -216,7 +223,7 @@ def plot_cmd(mags, magerrs, outfig=None):
     plt.show()
 
 
-def plot_colourcolour(mags, outfig=None, colour='k', xlim=(None,None), ylim=(None,None), alpha=1):
+def plot_colourcolour(mags, outfig=None, colour='k', xlim=(None, None), ylim=(None, None), alpha=1):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
 
     # J - H vs H - Ks
@@ -229,13 +236,14 @@ def plot_colourcolour(mags, outfig=None, colour='k', xlim=(None,None), ylim=(Non
     ax.invert_xaxis()
 
     if xlim[0] is not None:
-        ax.set_xlim(xlim[0],xlim[1])
+        ax.set_xlim(xlim[0], xlim[1])
     if ylim[0] is not None:
-        ax.set_ylim(ylim[0],ylim[1])
+        ax.set_ylim(ylim[0], ylim[1])
 
     if outfig is not None:
         plt.savefig(outfig)
     plt.show()
+
 
 def select_region(mags, center, size):
     in_x = mags[(center[0] - size[0] / 2. < mags['x_pix']) & (mags['x_pix'] < center[0] + size[0] / 2.)]
@@ -243,16 +251,16 @@ def select_region(mags, center, size):
     return in_xy
 
 
-
 def compare_colourcolour(mags, center, size, outcenter, outsize, outfig=None):
-
     inmags = select_region(mags, center, size)
     outmags = select_region(mags, outcenter, outsize)
 
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(5, 5), sharex=True, sharey=True)
     # J - H vs H - Ks
-    incloud = ax[0].scatter(inmags['mag_aper_H'] - inmags['mag_aper_Ks'], inmags['mag_aper_J'] - inmags['mag_aper_H'], marker='.', color='r')
-    outcloud = ax[1].scatter(outmags['mag_aper_H'] - outmags['mag_aper_Ks'], outmags['mag_aper_J'] - outmags['mag_aper_H'], marker='.', color='b')
+    incloud = ax[0].scatter(inmags['mag_aper_H'] - inmags['mag_aper_Ks'], inmags['mag_aper_J'] - inmags['mag_aper_H'],
+                            marker='.', color='r')
+    outcloud = ax[1].scatter(outmags['mag_aper_H'] - outmags['mag_aper_Ks'],
+                             outmags['mag_aper_J'] - outmags['mag_aper_H'], marker='.', color='b')
     ax[0].set_xlabel('H - K')
     ax[1].set_xlabel('H - K')
     ax[0].set_ylabel('J - H')
