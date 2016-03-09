@@ -33,14 +33,12 @@ phot_curves.py
 	       list of aperture sizes, 
 	       source extractor file
 	       (optional) feducial radius
-	output files: table of magnitudes of unsaturated unreddened stars
 	output images: curve of growth, 
 		       half light radius, 
 		       mag aper and mag auto difference
 
    Preform an analysis on the initial photometry to determine the optimal parameters.
-   Input consists of a fits image with corresponding source extractor photometric catalogue,
-     and name of catalogue to be output.
+   Input consists of a fits image with corresponding source extractor photometric catalogue
 
    This script requires, at minimum, the source extractor values:
    'mag_aper', 'magerr_aper', 'kron_radius', 'x_image', 'y_image', 'fwhm_image' (if r_fed not specified)
