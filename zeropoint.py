@@ -2,19 +2,52 @@ __author__ = 'kawebb'
 
 """
 Procedure:
-Determine the magnitude zeropoint of our CFHT observations by comparing bright
-unsaturated stars to the same stars in the 2mass catalog.
-Apply this zeropoint to all of the stars measured.
+Determine the magnitude zeropoint of our CFHT observations by comparing bright unsaturated stars to the same stars
+in the 2mass catalog.
 
+Input includes either: image and corresponding OR the photometry file output from phot_curves.py
+ as well as: a 2mass file listing photometric values for bright stars in the region of the image
+                - this can be retreived at: http://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-dd
+             the aperture to calculate the zeropoint at. Any float may be specified, and the aperture
+               closest to an aperture used with source extractor will be used.
+               Default source extractor apertures are:
+               [5, 10, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60]
+             the band of the photometry, used to specify the magnitudes from the 2mass file for comparison to the
+               measured magnitudes for the calculation of the zeropoint
+ optional:  an outfile to print a few of the calculated values to
+
+To calculate the zeropoint correction to be entered into source extractor for the correct calculation of magnitudes,
+ the process is as follows:
+ if source extractor and file given:
+   parse photometric cataloque to remove saturated stars
+ else:
+   read in photmetry file output from phot_curves, which has already been parsed
+ use the cloud names, and shape paremeters specified in the header to remove stars which are in the region of the
+   cloud core
+ remove stars which do not have a star light PSF using the phot_curves half_light function.
+ Identify the stars in our image remaining with those from the 2mass catalogue, uses a nearest neighbour approach
+   with a maximum separation of 0.005 degrees (hardcoded into query_seperation function)
+ subtract the magnitudes measured from those in the 2mass catalogue, calculate a weighted average
+
+
+Example commands:
 python zeropoint.py -img CB68/CB68_J_sub.fits -ph phot_t20/CB68_J_mags_t20.txt -band j -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt  -sf phot_t20/CB68_J_sex_t20.txt
 python zeropoint.py -img CB68/CB68_H_sub.fits -ph phot_t20/CB68_H_mags_t20.txt -band h -ap 30 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt -sf phot_t20/CB68_H_sex_t20.txt
 python zeropoint.py -img CB68/CB68_Ks_sub.fits -ph phot_t20/CB68_Ks_mags_t20.txt -band k -ap 24 -tm CB68/2mass_CB68.tbl -out CB68/CB68_offsets.txt -sf phot_t20/CB68_Ks_sex_t20.txt
 
+Rerun the photomerty with the zeropoint correction.
 sex -c phot_t3.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t3_ap30.txt -PHOT_APERTURES 30 -MAG_ZEROPOINT 30-0.192943311392
 sex -c phot_t3.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t3_ap24.txt -PHOT_APERTURES 24 -MAG_ZEROPOINT 30+0.605746118244
 sex -c phot_t3.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t3_ap40.txt -PHOT_APERTURES 40 -MAG_ZEROPOINT 30+0.471278827929
 
 """
+
+_CLOUDS = ['CB68', 'L429', 'L1521E', 'L1544', 'L1552']
+_CENTERS = np.array([[2610.6899, 2868.1778], [2496.3232, 2158.1909], [2532.6025, 2753.7333], [2345.069, 2855.932],
+                        [2710.337, 2593.2019]])  # in pixels
+_SIZES = np.array([[1382.2207, 1227.3661], [1869.7259, 2345.7605], [1880.5105, 1777.3177], [1788.7782, 1570.9142],
+                      [1639.7134, 177.3117]])  # in pixels
+
 
 import os
 import numpy as np
@@ -54,6 +87,10 @@ def main():
                         action='store',
                         default=None,
                         help='Band of photometry')
+    parser.add_argument("--cloud",
+                        action='store',
+                        default=None,
+                        help='Band of photometry')
     args = parser.parse_args()
 
     if args.image is None:
@@ -72,19 +109,19 @@ def main():
     apertures = [5, 10, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60]
     iap = np.argmin(np.array(apertures) - int(args.aperture)) + 1
 
-    zeropoint(args.image, args.sexfile, args.outfile, args.photfile, args.tmass, iap, args.band)
-
-
-def zeropoint(image, sexfile, outfile, photfile, twomassfile, iap, band):
-    clouds = ['CB68', 'L429', 'L1521E', 'L1544', 'L1552']
-    centers = np.array([[2610.6899, 2868.1778], [2496.3232, 2158.1909], [2532.6025, 2753.7333], [2345.069, 2855.932],
-                        [2710.337, 2593.2019]])  # in pixels
-    sizes = np.array([[1382.2207, 1227.3661], [1869.7259, 2345.7605], [1880.5105, 1777.3177], [1788.7782, 1570.9142],
-                      [1639.7134, 177.3117]])  # in pixels
-    for i, cloud in enumerate(clouds):
-        if cloud in image:
+    for i, cloud in enumerate(_CLOUDS):
+        if cloud in args.cloud:
             center = centers[i]
             size = sizes[i]
+
+    zeropoint(args.tmass, iap, args.band, args.image, args.sexfile, args.photfile, args.outfile, center, size)
+
+
+def zeropoint(twomassfile, iap, band, image=None, sexfile=None, photfile=None, outfile=None, center=(None,None),
+              size=(None,None)):
+
+    if (image is None) and (sexfile is None) and (photfile is None):
+        raise Exception, 'Either image and source extractor file, OR phot_curves photometry file must be given'
 
     # read in catalogue of unsaturated stars
     if not os.path.exists(photfile):
@@ -93,8 +130,11 @@ def zeropoint(image, sexfile, outfile, photfile, twomassfile, iap, band):
         photfile = ascii.read(photfile)
 
     # Removed reddened stars from zeropoint calculation
-    idx_reddened = id_region(photfile['X_IMAGE'], photfile['Y_IMAGE'], center, size)  # Find reddened
-    unreddened = photfile[~idx_reddened]
+    if center[0] is not None:
+        idx_reddened = id_region(photfile['X_IMAGE'], photfile['Y_IMAGE'], center, size)  # Find reddened
+        unreddened = photfile[~idx_reddened]
+    else:
+        unreddened = photfile
 
     # Remove objects which are not stars by PSF
     idx_stars = phot_curves.half_light(unreddened['MAG_APER_{}'.format(iap)], unreddened['FLUX_RADIUS'], toplot=False)
