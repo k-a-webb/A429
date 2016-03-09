@@ -141,4 +141,41 @@ colours.py
      4. if a particular region is specifed (i.e. written directly into the script) the magnitude list can be cropped easily
 
 
+---------------
+addstar.py
+---------------
 
+   Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
+
+   Procedure:
+   Run addstars to generate model PSF and implant # of them into the image
+   Run source extractor with code output to measure photometry on image with artificial stars
+   Run addstars to counts number of artificial stars recovered
+
+   Input variables are specified and described in the header.
+
+   The artifical stars are generated as follows:
+     1. regions in the image are specified with the parameters _xrange, _yrange, for each region, generate _nstars number
+         of coodinates where the artificial stars will be eventually placed
+         - once the files are generated, keep them, as they will be used to check which stars recovered
+     2. for each region, parse the list of stars given in the source extractor photometry catalogue for stars that:
+        - have a magnitude in _magrange
+        - have a mag_err/mag less than _maxmagerr
+        - coutns within limits of _mincounts, _maxcounts, _min_maxcounts
+     3. For each qualifying star, plot a 3D mesh plot of the region of size _simension about the star
+        - the index, coordinates, mgnitude, and chisquare fit will be display
+        - to select a star, input the index into the prompt. to pass, hit 'enter'/'return'
+        - to kill the loop, type any string, this will kill the entire script
+     4. For a selected star, fit with a 2D function (gaussian or lorentzian as specified)
+     5. Center the fitted star, and remove any offset level of counts (i.e. set to 0.)
+     6. For each coordinate generated/read from the _artfiles list, place an artificial star there
+     7. Once this has been done for each region listed, output a fits image
+
+   Then the user must run the output image through source extractor, where the catalogue is named as specified in _artsexfile
+
+   To calculate the number of recovered artificial stars:
+     1. for each region, run a nearest neighbour search on list of locations of the artifical stars implanted into the image
+        - default maximum separation of stars is 2 pixels
+     2. counts the number of stars recovered relative to the number inserted
+     3. Plots histograms of number of stars recovered, and the magnitude they were recovered at
+     4. Prints some statistics
