@@ -12,25 +12,55 @@ from matplotlib.colors import LogNorm
 """
 Create artificial stars from a good candidate star in the image. Determine number of stars recovered.
 
+Procedure:
 Run addstars to generate model PSF and implant # of them into the image
 Run source extractor with code output to measure photometry on image with artificial stars
 Run addstars to counts number of artificial stars recovered
-"""
 
-_SEXFILE = 'phot_t3/CB68_J_sex_t3_ap30.txt'
-# _IMAGE = 'CB68/CB68_J_sub.fits'
-_IMAGE = 'release/CB68_J_sub.fits'
-_ARTIMAGE = 'mag_lim/CB68_J_sub_{}_art.fits'
+Input variables are specified and described in the header.
+
+The artifical stars are generated as follows:
+  1. regions in the image are specified with the parameters _xrange, _yrange, for each region, generate _nstars number
+      of coodinates where the artificial stars will be eventually placed
+      - once the files are generated, keep them, as they will be used to check which stars recovered
+  2. for each region, parse the list of stars given in the source extractor photometry catalogue for stars that:
+     - have a magnitude in _magrange
+     - have a mag_err/mag less than _maxmagerr
+     - coutns within limits of _mincounts, _maxcounts, _min_maxcounts
+  3. For each qualifying star, plot a 3D mesh plot of the region of size _simension about the star
+     - the index, coordinates, mgnitude, and chisquare fit will be display
+     - to select a star, input the index into the prompt. to pass, hit 'enter'/'return'
+     - to kill the loop, type any string, this will kill the entire script
+  4. For a selected star, fit with a 2D function (gaussian or lorentzian as specified)
+  5. Center the fitted star, and remove any offset level of counts (i.e. set to 0.)
+  6. For each coordinate generated/read from the _artfiles list, place an artificial star there
+  7. Once this has been done for each region listed, output a fits image
+
+Then the user must run the output image through source extractor, where the catalogue is named as specified in _artsexfile
+
+To calculate the number of recovered artificial stars:
+  1. for each region, run a nearest neighbour search on list of locations of the artifical stars implanted into the image
+     - default maximum separation of stars is 2 pixels
+  2. counts the number of stars recovered relative to the number inserted
+  3. Plots histograms of number of stars recovered, and the magnitude they were recovered at
+  4. Prints some statistics
+
+"""
+_IMAGE = 'CB68/CB68_J_sub.fits'  # fits image
+# _IMAGE = 'release/CB68_J_sub.fits'
+_SEXFILE = 'phot_t3/CB68_J_sex_t3_ap30.txt'  # source extractor file
+_ARTIMAGE = 'mag_lim/CB68_J_sub_{}_art.fits'  # name of output image with artificial stars
 
 ###### Default values
-_MAGRANGE = [18.,24.]
-_STAR_INDICES = [None, None, None, None, None, None, None, None, None, None, None, None]
-_MAGS = [None, None, None, None, None, None, None, None, None, None, None, None]
-_MAXMAGERR = 0.01
+_MAGRANGE = [18.,24.]  # default, finds all stars in this range
+_STAR_INDICES = [None, None, None, None, None, None, None, None, None, None, None, None]  # default, used to quickly find star previously chosen
+_MAGS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # default, used for plotting purposes, the array is printed out automatically after stars are identified
+_MAXMAGERR = 0.01  # default, will only select stars with magerr_aper/mag_aper below this value
 
-_ARTSEXFILE = 'mag_lim/CB68_J_sex_{}_art.txt'
-_ARTPNG = 'mag_lim/CB68_J_sex_{}_art.png'
+_ARTSEXFILE = 'mag_lim/CB68_J_sex_{}_art.txt'  # source extractor file from image with artificial stars
+_ARTPNG = 'mag_lim/CB68_J_sex_{}_art.png'  # output name 'format' for phots of statistics of recovered artificial stars
 
+# regions where artificial stars will be generated, and corresponding files listing the coordinates of where the stars are
 _ARTFILES = ['mag_lim/art1.coo', 'mag_lim/art2.coo', 'mag_lim/art3.coo', 'mag_lim/art4.coo', 'mag_lim/art5.coo',
             'mag_lim/art6.coo', 'mag_lim/art7.coo', 'mag_lim/art8.coo', 'mag_lim/art9.coo', 'mag_lim/art10.coo',
             'mag_lim/art11.coo', 'mag_lim/art12.coo']
@@ -41,11 +71,13 @@ _XRANGE = [[700., 2000.], [2100., 3400.], [3600., 4800.], [700., 2000.], [2100.,
 _YRANGE = [[3800., 4600.], [3800., 4600.], [3800., 4600.], [2800., 3600.], [2800., 3600.], [2800., 3600.],
            [1300., 2500.], [1300., 2500.], [1300., 2500.], [900., 1600.], [900., 1600.], [900., 1600.]]
 
-# _ARTSEXFILE = _SEXFILE
-# _ARTIMAGE = _IMAGE
-# _MAGS = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
 
-# CB68 J
+# _ARTSEXFILE = _SEXFILE  # For testing only, see how many 'artificial' stars are recovered, when no artificial stars
+#                           this shows how many times an artifical lstar is placed over a real star/object
+# _ARTIMAGE = _IMAGE  # For testing only, see how many 'artificial' stars are recovered, when no artificial stars
+
+
+# CB68 J, parameters chosen for this image
 #
 #_MAGRANGE = [21.0, 21.5]
 #_STAR_INDICES = [2,3,4,7,5,7,7,1,2, 2,10,12]
@@ -74,17 +106,19 @@ _YRANGE = [[3800., 4600.], [3800., 4600.], [3800., 4600.], [2800., 3600.], [2800
 
 
 # More default values
-_DIMENSION = 25.
+_DIMENSION = 25.  # the size of the postage stamp the make the artificial star in
 _NSTARS = 100.
-_MAXCOUNTS = np.inf
-_MINCOUNTS = -np.inf
-_MIN_MAXCOUNTS = -np.inf
-_TOPLOT = False
-_CHI2MAX = 100.
-_FUNCTION = 'gauss'
+_MAXCOUNTS = np.inf  # only consider stars with less than this as the maximum value
+_MINCOUNTS = -np.inf  # only consider stars with more than this as the minimum value
+_MIN_MAXCOUNTS = -np.inf  # only consider stars with this as the minimum value of the maximum peak count
+_TOPLOT = True  # whether or not to plot additional figures
+# _TOPLOT = False
+_CHI2MAX = 100.  # only consider stars with a chisquare fit less than this value
+_FUNCTION = 'gauss'  # which function to fit the star PSF to, either 'gauss' or 'lorentz'
 
 
 def main():
+    # FOR REFERENCE, not used
     # clouds = ['CB68', 'L429', 'L1521E', 'L1544']  # , 'L1552']
     # sexfiles_j = ['phot_t3/CB68_J_sex_t3_ap30.txt', 'phot_t3/L429_J_sex_t3_ap24.txt',
     #               'phot_t3/L1521E_J_sex_t3_ap30.txt', 'phot_t3/L1544_J_sex_t3_ap28.txt']  # , 'phot_t3/']
@@ -101,8 +135,8 @@ def main():
         if not os.path.exists(artfile):
             generate_coords(artfile, int(_NSTARS), _XRANGE[i], _YRANGE[i])
 
-    magstr = '{:<4.4f}'.format(np.mean(_MAGS)).replace('.', 'p')
-    artsexfile = _ARTSEXFILE.format(magstr)
+    magstr = '{:<4.4f}'.format(np.mean(_MAGS)).replace('.', 'p')  # used for naming output only
+    artsexfile = _ARTSEXFILE.format(magstr)  # if _MAGS are specified based on previously determined stars, this file should exist
 
     if not os.path.exists(artsexfile):
         if _ARTIMAGE is None:
@@ -188,7 +222,7 @@ def find_art_stars_allregions(artsexfile, artfiles, mags, toplot, fig_regions, f
     plt.savefig(fig_regions)
     plt.show()
 
-    plt.hist(allartmags, 50, color='b', alpha=0.5, label=str(np.sum(recovered * 100) / 12))
+    plt.hist(allartmags, 50, color='b', alpha=0.5, label=str(np.sum(recovered * 100) / float(len(_XRANGE))))
     for mag in mags:
         plt.axvline(mag, 0, 10, color='r')
     plt.xlim(17, 24)
@@ -196,7 +230,7 @@ def find_art_stars_allregions(artsexfile, artfiles, mags, toplot, fig_regions, f
     plt.legend()
     plt.show()
 
-    print '  Recovered {}%'.format(np.sum(recovered * 100) / 12)
+    print '  Recovered {}%'.format(np.sum(recovered * 100) / float(len(_XRANGE)))
     print '  Mean magnitude offset {}'.format(np.nanmean(artmagdiff))
 
 
@@ -362,13 +396,13 @@ def addstar(sexfile, image, artfile, (magmin, magmax), star_idx=None, (xmin, xma
                                p0=[np.max(cutout), s / 2., s / 2., s / 2., s / 2., 0., 0.])
         data_fitted = gaussian_2d((xx, yy), *popt).reshape(s, s)
         # create a 2D gaussian with (optimized) parameters returned from the fit, but centered
-        star_centered = gaussian_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], popt[6]).reshape(s, s)
+        star_centered = gaussian_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], 0.).reshape(s, s)
 
     if function == 'lorentz':
         popt, pcov = curve_fit(lorentz_2d, (xx, yy), cutout.ravel(),
                                p0=[np.max(cutout), s / 2., s / 2., s / 50., s / 50., 0., 0.])
         data_fitted = lorentz_2d((xx, yy), *popt).reshape(s, s)
-        star_centered = lorentz_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], popt[6]).reshape(s, s)
+        star_centered = lorentz_2d((xx, yy), popt[0], s / 2., s / 2., popt[3], popt[4], popt[5], 0.).reshape(s, s)
 
     print '  Optimal parameters, A, x0, y0, sigma_x, sigma_y, theta, offset:  '
     print '    {} {} {} {} {} {} {}'.format(popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6])
