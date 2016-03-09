@@ -1,8 +1,7 @@
 
 """
 Preform an analysis on the initial photometry to determine the optimal parameters.
-Input consists of a fits image with corresponding source extractor photometric catalogue,
-  and name of catalogue to be output.
+Input consists of a fits image with corresponding source extractor photometric catalogue
 
   This script requires, at minimum, the source extractor values:
   'mag_aper', 'magerr_aper', 'kron_radius', 'x_image', 'y_image', 'fwhm_image' (if r_fed not specified)
@@ -37,11 +36,11 @@ sex -c phot_t7.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 
 For every aperture selected in source extractor, calculate the average magnitude, and display as a curve of growth:
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outcog CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
-python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t20.txt --outcog CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
-python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t20.txt --outcog CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt --outcog CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
+python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt --outcog CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
+python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt --outcog CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
 
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outcog CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcog CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
 """
 
 import numpy as np
@@ -65,10 +64,6 @@ def main():
                         action='store',
                         default=None,
                         help='Source extractor file for J,H, or Ks bands.')
-    parser.add_argument("--outfile", '-of',
-                        action='store',
-                        default=None,
-                        help='Outfile of photomatry catalogue where saturated stars removed.')
 
     # optional parameters
     parser.add_argument("--apertures", '-aps',
@@ -122,10 +117,7 @@ def main():
         r_fed = args.r_fed
 
     # remove saturated stars from catalogue, output as new catalogue
-    if not os.path.exists(args.outfile):
-        phottable = remove_saturated(args.image, args.sexfile, apertures, args.outfile)
-    else:
-        phottable = ascii.read(args.sexfile, format='sextractor')
+    phottable = remove_saturated(args.image, args.sexfile)
 
     # calculate curve of growths
     if args.outcurvegrowth is not None:
@@ -148,7 +140,7 @@ def main():
         plt.show()
 
 
-def remove_saturated(image, sexfile, outfile=None):
+def remove_saturated(image, sexfile):
     imgdata, imghdr = read_fits(image)  # Access fits data to read locations of saturated stars
 
     phottable = ascii.read(sexfile, format='sextractor')
@@ -157,8 +149,6 @@ def remove_saturated(image, sexfile, outfile=None):
 
     phottable = phottable[np.where(phottable['MAG_APER'] < 99.)]
 
-    if outfile is not None:
-        ascii.write(phottable, outfile, comment=False)
     return phottable
 
 
@@ -191,9 +181,12 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
     # make numpy ndarrays from the dataframes, easier to plot
     magtable = np.ones((len(apertures), len(phottable)))
     magerrtable = np.ones((len(apertures), len(phottable)))
-    for i in range(len(apertures)):
-        magtable[i, :] = np.array(phottable['MAG_APER_{}'.format(i+1)])
-        magerrtable[i, :] = np.array(phottable['MAGERR_APER_{}'.format(i+1)])
+    magtable[0, :] = np.array(phottable['MAG_APER'])
+    magerrtable[0, :] = np.array(phottable['MAGERR_APER'])
+
+    for i in range(1,len(apertures)):
+        magtable[i, :] = np.array(phottable['MAG_APER_{}'.format(i)])
+        magerrtable[i, :] = np.array(phottable['MAGERR_APER_{}'.format(i)])
 
     # determine the feducial aperture by closest value to given feducial radius
     if r_feducial is None:
@@ -218,16 +211,20 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
     expo = lambda x, amp, alpha, b: amp * np.exp(-1 * x * alpha) + b
     popt, pcov = optimize.curve_fit(expo, apertures, average_rel, p0=[1.5, .2, 0.], sigma=yerr, absolute_sigma=True)
 
-    fit = expo(apertures, popt[0], popt[1], popt[2])
+    aps_fine = np.linspace(np.min(apertures), np.max(apertures), 100.)
+    fit = expo(aps_fine, popt[0], popt[1], popt[2])
+
+    data_fitted = expo(apertures, *popt)
+    # determine "goodness of fit" by chi square statistic
+    chi2 = np.sum((average_rel- data_fitted)**2 / data_fitted)
 
     ax = plt.gca()
-    ax.plot(apertures, average_rel, '-b', label=r'$\Delta mag$')
-    ax.plot(apertures, fit, '-r', label=r'$\Delta mag$ fit')
-    ax.errorbar(apertures, average_rel, yerr=yerr)
-    ax.plot(apertures, apertures * 0., '-k')
+    ax.plot(aps_fine, fit, '-r', label=r'exponential fit, $\chi^2=${:<2.3f}'.format(chi2))
+    ax.errorbar(apertures, average_rel, yerr=yerr, fmt='.', label=r'$\Delta$ magnitude')
+    ax.plot(aps_fine, aps_fine*0., ':k')
     ax.invert_yaxis()
-    ax.set_xlabel('apertures')
-    ax.set_ylabel(r'$\Delta$ mag relative to aperture {}'.format(ap_fed))
+    ax.set_xlabel('aperture')
+    ax.set_ylabel(r'$\Delta$ magnitude relative to aperture {}'.format(ap_fed))
     plt.legend(loc=4)
     if outimage is not None:
         plt.savefig(outimage)
