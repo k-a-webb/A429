@@ -1,12 +1,33 @@
 __author__ = 'kawebb'
 
 """
+Procedure:
 Match stars from J,H,Ks bands, plot colour magnitude diagrams
 
-python plot_cmd.py -is CB68/CB68_J_sub.fits CB68/CB68_Ks_sub.fits CB68/CB68_H_sub.fits -sfs phot_t3/CB68_J_sex_t3_ap30.txt phot_t3/CB68_Ks_sex_t3_ap24.txt phot_t3/CB68_H_sex_t3_ap30.txt -ofile phot_t3/CB68_allmags.txt -ofig CB68/CB68_cmd.png
-python plot_cmd.py -is L429/L429_J_sub.fits L429/L429_Ks_sub.fits L429/L429_H_sub.fits -sfs phot_t3/L429_J_sex_t3_ap24.txt phot_t3/L429_Ks_sex_t3_ap24.txt phot_t3/L429_H_sex_t3_ap20.txt -ofile phot_t3/L429_allmags.txt -ofig L429/L429_cmd.png
-python plot_cmd.py -is L1521E/L1521E_J_sub.fits L1521E/L1521E_Ks_sub.fits L1521E/L1521E_H_sub.fits -sfs phot_t3/L1521E_J_sex_t3_ap30.txt phot_t3/L1521E_Ks_sex_t3_ap28.txt phot_t3/L1521E_H_sex_t3_ap26.txt -ofile phot_t3/L1521E_allmags.txt -ofig L1521E/L1521E_cmd.png
-python plot_cmd.py -is L1544/L1544_J_sub.fits L1544/L1544_Ks_sub.fits L1544/L1544_H_sub.fits -sfs phot_t3/L1544_J_sex_t3_ap28.txt phot_t3/L1544_Ks_sex_t3_ap28.txt phot_t3/L1544_H_sex_t3_ap28.txt -ofile phot_t3/L1544_allmags.txt -ofig L1544/L1544_cmd.png
+Input consists of:
+  a list of source extractor files corresponding to the J,H,K bands
+  the fits images in the J,H,K bands
+  the name of the photometry file to be output (this will be the input into NICEST)
+  the name of the colour colour figure to be saved, by default not saved
+
+  Note: if the output photometry file has already been produced, the script can be run without specifying
+        the source extractor or images file, as long as the output photometry file is specified
+
+Optional input:
+  maximum separation for nearest neighbour search, default 0.0001 degrees
+
+To produce the colour colour plots:
+  1. remove saturated stars from each photometry catalogue using phot_curves function
+  2. match the stars in each catalogue, only keep stars identified in all bands, uses nearest neighbour approach
+  3. compare colours, and plot
+  4. if a particular region is specifed (i.e. written directly into the script) the magnitude list can be cropped easily
+
+Example commands to run:
+python colours.py -is CB68/CB68_J_sub.fits CB68/CB68_Ks_sub.fits CB68/CB68_H_sub.fits -sfs phot_t3/CB68_J_sex_t3_ap30.txt phot_t3/CB68_Ks_sex_t3_ap24.txt phot_t3/CB68_H_sex_t3_ap30.txt -ofile phot_t3/CB68_allmags.txt -ofig CB68/CB68_cmd.png
+python colours.py -is L429/L429_J_sub.fits L429/L429_Ks_sub.fits L429/L429_H_sub.fits -sfs phot_t3/L429_J_sex_t3_ap24.txt phot_t3/L429_Ks_sex_t3_ap24.txt phot_t3/L429_H_sex_t3_ap20.txt -ofile phot_t3/L429_allmags.txt -ofig L429/L429_cmd.png
+python colours.py -is L1521E/L1521E_J_sub.fits L1521E/L1521E_Ks_sub.fits L1521E/L1521E_H_sub.fits -sfs phot_t3/L1521E_J_sex_t3_ap30.txt phot_t3/L1521E_Ks_sex_t3_ap28.txt phot_t3/L1521E_H_sex_t3_ap26.txt -ofile phot_t3/L1521E_allmags.txt -ofig L1521E/L1521E_cmd.png
+python colours.py -is L1544/L1544_J_sub.fits L1544/L1544_Ks_sub.fits L1544/L1544_H_sub.fits -sfs phot_t3/L1544_J_sex_t3_ap28.txt phot_t3/L1544_Ks_sex_t3_ap28.txt phot_t3/L1544_H_sex_t3_ap28.txt -ofile phot_t3/L1544_allmags.txt -ofig L1544/L1544_cmd.png
+python colours.py -is L1552/L1544_J_sub.fits L1552/L1552_Ks_sub.fits L1552/L1552_H_sub.fits -sfs phot_t3/L1552_J_sex_t3_ap28.txt phot_t3/L1552_Ks_sex_t3_ap28.txt phot_t3/L1552_H_sex_t3_ap28.txt -ofile phot_t3/L1552_allmags.txt -ofig L1552/L1552_cmd.png
 
 """
 
@@ -17,6 +38,8 @@ import matplotlib.pyplot as plt
 import phot_curves
 import os
 from scipy.spatial import KDTree
+from astropy.io import ascii
+
 
 
 def main():
@@ -72,15 +95,15 @@ def main():
         # match the stars in each source extractor file by nearest neighbour
         mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
         mags.to_csv(args.outfile, index=False, delimater=' ')
-
     else:
         print 'Reading magnitude table from file {}'.format(args.outfile)
-        mags = pd.read_csv(args.outfile)
+        mags = ascii.read(args.outfile)
 
     outfig_cc = args.outfig.split('.')[0] + '_cc.png'
-    plot_cmd([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values],
-             [mags['magerr_aper_J'].values, mags['magerr_aper_H'].values, mags['magerr_aper_Ks'].values], args.outfig)
-    plot_colourcolour([mags['mag_aper_J'].values, mags['mag_aper_H'].values, mags['mag_aper_Ks'].values], outfig_cc)
+    mags_colours = [mags['mag_aper_J'].data, mags['mag_aper_H'].data, mags['mag_aper_Ks'].data]
+    magerrs_colours = [mags['magerr_aper_J'].data, mags['magerr_aper_H'].data, mags['magerr_aper_Ks'].data]
+    plot_cmd(mags_colours, magerrs_colours, args.outfig)
+    plot_colourcolour(mags_colours, outfig_cc)
 
 
     # plot colour-colour plots for reddened and unreddened regions
@@ -134,8 +157,8 @@ def query_tree3(table_j, table_ks, table_h, max_sep=0.0001):
     For two pandas database files, with the ra/dec header names x_wcs/y_wcs as defined in read_sex
     """
 
-    tree2 = KDTree(zip(table_ks['X_WORLD'].values.ravel(), table_ks['Y_WORLD'].values.ravel()))
-    tree3 = KDTree(zip(table_h['X_WORLD'].values.ravel(), table_h['Y_WORLD'].values.ravel()))
+    tree2 = KDTree(zip(table_ks['X_WORLD'].ravel(), table_ks['Y_WORLD'].ravel()))
+    tree3 = KDTree(zip(table_h['X_WORLD'].ravel(), table_h['Y_WORLD'].ravel()))
 
     idxs1 = []
     idxs2 = []
@@ -143,7 +166,7 @@ def query_tree3(table_j, table_ks, table_h, max_sep=0.0001):
     dups2 = []
     dups3 = []
 
-    for i in range(len(table_j.index)):
+    for i in range(len(table_j)):
         d2, icoords2 = tree2.query((table_j['X_WORLD'][i], table_j['Y_WORLD'][i]), distance_upper_bound=max_sep)
         d3, icoords3 = tree3.query((table_j['X_WORLD'][i], table_j['Y_WORLD'][i]), distance_upper_bound=max_sep)
         if (d2 != np.inf) & (d3 != np.inf):
@@ -193,11 +216,11 @@ def plot_cmd(mags, magerrs, outfig=None):
     plt.show()
 
 
-def plot_colourcolour(mags, outfig=None):
+def plot_colourcolour(mags, outfig=None, colour='k', xlim=(None,None), ylim=(None,None), alpha=1):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
 
     # J - H vs H - Ks
-    ax.scatter(mags[1] - mags[2], mags[0] - mags[1], marker='.')
+    ax.scatter(mags[1] - mags[2], mags[0] - mags[1], marker='.', color=colour, alpha=alpha)
     # ax[0].errorbar(mags[0] - mags[1], mags[2], yerr=magerrs[2], xerr=xerr, ecolor='g')
     ax.set_xlabel('H - K')
     ax.set_ylabel('J - H')
@@ -205,25 +228,31 @@ def plot_colourcolour(mags, outfig=None):
     ax.invert_yaxis()
     ax.invert_xaxis()
 
+    if xlim[0] is not None:
+        ax.set_xlim(xlim[0],xlim[1])
+    if ylim[0] is not None:
+        ax.set_ylim(ylim[0],ylim[1])
+
     if outfig is not None:
         plt.savefig(outfig)
     plt.show()
 
+def select_region(mags, center, size):
+    in_x = mags[(center[0] - size[0] / 2. < mags['x_pix']) & (mags['x_pix'] < center[0] + size[0] / 2.)]
+    in_xy = in_x[(center[1] - size[1] / 2. < in_x['y_pix']) & (in_x['y_pix'] < center[1] + size[1] / 2.)]
+    return in_xy
+
+
 
 def compare_colourcolour(mags, center, size, outcenter, outsize, outfig=None):
-    in_x = mags.query('{} < x_pix < {}'.format(center[0] - size[0] / 2, center[0] + size[0] / 2))
-    in_xy = in_x.query('{} < y_pix < {}'.format(center[1] - size[1] / 2, center[1] + size[1] / 2))
 
-    inmags = [in_xy['mag_aper_J'].values, in_xy['mag_aper_H'].values, in_xy['mag_aper_Ks'].values]
-
-    in_x = mags.query('{} < x_pix < {}'.format(outcenter[0] - outsize[0] / 2, outcenter[0] + outsize[0] / 2))
-    in_xy = in_x.query('{} < y_pix < {}'.format(outcenter[1] - outsize[1] / 2, outcenter[1] + outsize[1] / 2))
-    outmags = [in_xy['mag_aper_J'].values, in_xy['mag_aper_H'].values, in_xy['mag_aper_Ks'].values]
+    inmags = select_region(mags, center, size)
+    outmags = select_region(mags, outcenter, outsize)
 
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(5, 5), sharex=True, sharey=True)
     # J - H vs H - Ks
-    incloud = ax[0].scatter(inmags[1] - inmags[2], inmags[0] - inmags[1], marker='.', color='r')
-    outcloud = ax[1].scatter(outmags[1] - outmags[2], outmags[0] - outmags[1], marker='.', color='b')
+    incloud = ax[0].scatter(inmags['mag_aper_H'] - inmags['mag_aper_Ks'], inmags['mag_aper_J'] - inmags['mag_aper_H'], marker='.', color='r')
+    outcloud = ax[1].scatter(outmags['mag_aper_H'] - outmags['mag_aper_Ks'], outmags['mag_aper_J'] - outmags['mag_aper_H'], marker='.', color='b')
     ax[0].set_xlabel('H - K')
     ax[1].set_xlabel('H - K')
     ax[0].set_ylabel('J - H')
@@ -234,9 +263,10 @@ def compare_colourcolour(mags, center, size, outcenter, outsize, outfig=None):
     ax[0].invert_xaxis()
 
     fig.subplots_adjust(hspace=0, wspace=0.1)
-    lgd = fig.legend((incloud, outcloud), ('Reddened', 'Reference'), loc=(0.588, .878))
-    plt.savefig(outfig, bbox_extra_artists=(lgd,), bbox_inches='tight')
-    # plt.show()
+    lgd = fig.legend((incloud, outcloud), ('Reddened', 'Reference'), loc=(0.25, .818))
+    if outfig is not None:
+        plt.savefig(outfig, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.show()
 
 
 if __name__ == '__main__':
