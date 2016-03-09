@@ -1,10 +1,42 @@
-__author__ = 'kawebb'
 
 """
+Preform an analysis on the initial photometry to determine the optimal parameters.
+Input consists of a fits image with corresponding source extractor photometric catalogue,
+  and name of catalogue to be output.
+
+  This script requires, at minimum, the source extractor values:
+  'mag_aper', 'magerr_aper', 'kron_radius', 'x_image', 'y_image', 'fwhm_image' (if r_fed not specified)
+  to use aper_auto_check: 'mag_auto', 'mag_err_auto'
+  to use half_light: 'flux_radius'
+
+  The apertures used with source extractor must be specified, or the default values are used:
+  [5, 10, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60]
+
+To calculate the curve of growth, the photometry catalogue is parsed for stars with accurate
+  measurements (i.e. mag < 99.), and the location of each star is compared to the image, where
+  stars that are saturated (have cores with 0's) are removed. A curve of growth is then produced
+  for each remaining star, and the final curve is the weighted average (weight =  1/sigma^2).
+  This curve is shown relative to a chosen feducial radius, default 30, and fitted to an exponential
+  curve. The plot is saved if the parameter 'outcurvegrowth' is specified.
+
+Additional operations:
+  aper_auto_check: calculation of the difference between the measurement of the magnitude from source
+  extractors 'mag_aper' for the fiducial radius specified and the 'mag_auto'
+
+  half_light: fits a linear function to the distribution of 'flux_radius' vs. 'mag_aper', removes objects
+  outside of 1 standard deviation, fits a linear function again, and removes objects outside 3 standard
+  deviations. The fitting is used twice as the large scatter of 'flux_radius' due to highly extended
+  objects effects the linear fitting process.
+
+
+Example code:
+
+Run image through source extractor to obtain photometric catalogues:
 sex -c phot_t7.sex ../release/CB68_J_sub.fits -CATALOG_NAME CB68_J_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 
+For every aperture selected in source extractor, calculate the average magnitude, and display as a curve of growth:
 python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_J_mags_t20.txt --outcog CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
 python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_H_mags_t20.txt --outcog CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
 python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outfile CB68/CB68_Ks_mags_t20.txt --outcog CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
@@ -122,6 +154,9 @@ def remove_saturated(image, sexfile, outfile=None):
     phottable = ascii.read(sexfile, format='sextractor')
     unsat_idxs = detect_satur(imgdata, phottable['X_IMAGE'], phottable['Y_IMAGE'], phottable['KRON_RADIUS'])
     phottable = phottable[unsat_idxs]
+
+    phottable = phottable[np.where(phottable['MAG_APER'] < 99.)]
+
     if outfile is not None:
         ascii.write(phottable, outfile, comment=False)
     return phottable
