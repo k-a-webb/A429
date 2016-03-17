@@ -1,4 +1,3 @@
-
 """
 Preform an analysis on the initial photometry to determine the optimal parameters.
 Input consists of a fits image with corresponding source extractor photometric catalogue
@@ -36,11 +35,15 @@ sex -c phot_t7.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 
 For every aperture selected in source extractor, calculate the average magnitude, and display as a curve of growth:
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt --outcog CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
-python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt --outcog CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
-python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt --outcog CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt --outcurvegrowth CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
+python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt --outcurvegrowth CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
+python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt --outcurvegrowth CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
 
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcog CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
+
+python phot_curves.py -img L1552/L1552_J_sub.fits -sf phot_t15/L1552_J_sex_t15.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth L1552/L1552_J_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_J_halflight_t15.png
+python phot_curves.py -img L1552/L1552_H_sub.fits -sf phot_t15/L1552_H_sex_t15.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth L1552/L1552_H_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_H_halflight_t15.png
+python phot_curves.py -img L1552/L1552_Ks_sub.fits -sf phot_t15/L1552_Ks_sex_t15.txt --kron_factor 2. --outcurvegrowth L1552/L1552_Ks_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_Ks_halflight_t15.png
 """
 
 import numpy as np
@@ -93,6 +96,11 @@ def main():
                         action='store',
                         default=False,
                         help='Plot identified star coordinates over image.')
+    parser.add_argument("--kron_factor",
+                        action='store',
+                        type=float,
+                        default=3.,
+                        help='The scale factor on the kron radius used to remove saturated objects, Default 3.')
 
     args = parser.parse_args()
 
@@ -101,8 +109,6 @@ def main():
         raise Exception, 'ERROR: No image file given'
     if args.sexfile is None:
         raise Exception, 'ERROR: No source extractor files given'
-    if args.outfile is None:
-        raise Exception, 'ERROR: No output files given'
 
     # raise warnings if missing input values
     if args.apertures is None:
@@ -117,7 +123,20 @@ def main():
         r_fed = args.r_fed
 
     # remove saturated stars from catalogue, output as new catalogue
-    phottable = remove_saturated(args.image, args.sexfile)
+    phottable = remove_saturated(args.image, args.sexfile, args.kron_factor)
+
+    # remove invalid measurements
+    phottable = phottable[np.where(phottable['MAG_APER'] < 99.)]
+    for i in range(len(apertures))[1:]:
+        phottable = phottable[np.where(phottable['MAG_APER_{}'.format(i)] < 99.)]
+
+    # ignore stars on edge
+    xcenter = 2717.5805
+    ycenter = 2758.6842
+    xsize = 3787.5595
+    ysize = 3808.9581
+    phottable = phottable[(xcenter - xsize / 2. < phottable['X_IMAGE']) & (phottable['X_IMAGE'] < xcenter + xsize / 2.)]
+    phottable = phottable[(ycenter - ysize / 2. < phottable['Y_IMAGE']) & (phottable['Y_IMAGE'] < ycenter + ysize / 2.)]
 
     # calculate curve of growths
     if args.outcurvegrowth is not None:
@@ -140,14 +159,13 @@ def main():
         plt.show()
 
 
-def remove_saturated(image, sexfile):
+def remove_saturated(image, sexfile, factor=1.):
     imgdata, imghdr = read_fits(image)  # Access fits data to read locations of saturated stars
 
     phottable = ascii.read(sexfile, format='sextractor')
-    unsat_idxs = detect_satur(imgdata, phottable['X_IMAGE'], phottable['Y_IMAGE'], phottable['KRON_RADIUS'])
+    radius = phottable['KRON_RADIUS'] * factor
+    unsat_idxs = detect_satur(imgdata, phottable['X_IMAGE'], phottable['Y_IMAGE'], radius)
     phottable = phottable[unsat_idxs]
-
-    phottable = phottable[np.where(phottable['MAG_APER'] < 99.)]
 
     return phottable
 
@@ -184,7 +202,7 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
     magtable[0, :] = np.array(phottable['MAG_APER'])
     magerrtable[0, :] = np.array(phottable['MAGERR_APER'])
 
-    for i in range(1,len(apertures)):
+    for i in range(1, len(apertures)):
         magtable[i, :] = np.array(phottable['MAG_APER_{}'.format(i)])
         magerrtable[i, :] = np.array(phottable['MAGERR_APER_{}'.format(i)])
 
@@ -198,11 +216,10 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
 
     # calculate the weighted average and error, same dimension as apertures
     average = apertures * 0.
-    yerr = apertures * 0.
     for i in range(len(apertures)):
         weight = (magerrtable[i, :]) ** (-2)
         average[i] = np.average(magtable[i, :], weights=weight)
-        yerr[i] = np.sqrt(1 / np.sum(weight))  # sqrt(1/sum(w))
+    yerr = np.std(magtable, axis=1)  # sqrt(1/sum(w))
 
     average_rel = average * 0.
     for i in range(len(apertures)):
@@ -216,12 +233,13 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
 
     data_fitted = expo(apertures, *popt)
     # determine "goodness of fit" by chi square statistic
-    chi2 = np.sum((average_rel- data_fitted)**2 / data_fitted)
+    chi2 = np.sum((average_rel - data_fitted) ** 2 / data_fitted)
 
     ax = plt.gca()
     ax.plot(aps_fine, fit, '-r', label=r'exponential fit, $\chi^2=${:<2.3f}'.format(chi2))
-    ax.errorbar(apertures, average_rel, yerr=yerr, fmt='.', label=r'$\Delta$ magnitude')
-    ax.plot(aps_fine, aps_fine*0., ':k')
+    ax.scatter(apertures, average_rel, marker='.', label=r'$\Delta$ magnitude')
+    # ax.errorbar(apertures, average_rel, yerr=yerr, fmt='.', label=r'$\Delta$ magnitude')
+    ax.plot(aps_fine, aps_fine * 0., ':k')
     ax.invert_yaxis()
     ax.set_xlabel('aperture')
     ax.set_ylabel(r'$\Delta$ magnitude relative to aperture {}'.format(ap_fed))
@@ -243,27 +261,24 @@ def aper_auto_check(phottable, apertures, outfig=None):
 
     mag_aper_avg = np.zeros(len(apertures))
     magerr_aper_avg = np.zeros(len(apertures))
-    for i in range(len(apertures)):
-        mag_aper = np.array(phottable['MAG_APER_{}'.format(i+1)])
-        magerr_aper = np.array(phottable['MAGERR_APER_{}'.format(i+1)])
+    mag_aper_0 = np.array(phottable['MAG_APER'])
+    magerr_aper_0 = np.array(phottable['MAGERR_APER'])
+    mag_aper_avg[0] = np.average(mag_aper_0, weights=magerr_aper_0 ** (-2))
+    magerr_aper_avg[0] = np.sqrt(1 / np.sum(magerr_aper_0 ** (-2)))
+
+    for i in range(1, len(apertures)):
+        mag_aper = np.array(phottable['MAG_APER_{}'.format(i)])
+        magerr_aper = np.array(phottable['MAGERR_APER_{}'.format(i)])
         mag_aper_avg[i] = np.average(mag_aper, weights=magerr_aper ** (-2))
         magerr_aper_avg[i] = np.sqrt(1 / np.sum(magerr_aper ** (-2)))
 
     diff = np.subtract(mag_auto_avg, mag_aper_avg)
     differr = np.sqrt(magerr_auto_avg ** 2 + magerr_aper_avg ** 2)
 
-    plt.plot(apertures, diff)
-    plt.errorbar(apertures, diff, yerr=differr)
+    # plt.scatter(apertures, diff, marker='.', label=)
+    plt.errorbar(apertures, diff, yerr=differr, fmt='.')
     plt.xlabel('apertures')
     plt.ylabel(r'$mag_{auto} - mag_{aper}$')
-    if outfig is not None:
-        plt.savefig(outfig)
-    plt.show()
-
-    # plt.plot(apertures, diff)
-    plt.scatter(phottable['magerr_auto'].values, phottable['magerr_aper_{}'.format(ap)].values)
-    plt.xlabel('magerr_auto_avg')
-    plt.ylabel(r'magerr_aper_avg')
     if outfig is not None:
         plt.savefig(outfig)
     plt.show()
@@ -299,6 +314,7 @@ def half_light(x, y, outfig=None, toplot=True):
         plt.xlabel('mag')
         plt.ylabel('half light radius')
         plt.ylim(0, 5)
+        plt.xlim(np.min(x), np.max(x))
         if outfig is not None:
             plt.savefig(outfig)
         plt.show()
