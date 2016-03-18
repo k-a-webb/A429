@@ -18,17 +18,17 @@ Optional input:
 
 To produce the colour colour plots:
   1. remove saturated stars from each photometry catalogue using phot_curves function
-  2. match the stars in each catalogue, only keep stars identified in all bands, uses nearest neighbour approach
-  3. compare colours, and plot
-  4. if a particular region is specifed (i.e. written directly into the script) the magnitude list can be cropped easily
+  2. remove objects with non-stellar PSFs
+  3. match the stars in each catalogue, only keep stars identified in all bands, uses nearest neighbour approach
+  4. compare colours, and plot
+  5. if a particular region is specifed (i.e. written directly into the script) the magnitude list can be cropped easily
 
 Example commands to run:
-python colours.py -is CB68/CB68_J_sub.fits CB68/CB68_Ks_sub.fits CB68/CB68_H_sub.fits -sfs phot_t3/CB68_J_sex_t3_ap30.txt phot_t3/CB68_Ks_sex_t3_ap24.txt phot_t3/CB68_H_sex_t3_ap30.txt -ofile phot_t3/CB68_allmags.txt -ofig CB68/CB68_cmd.png
-python colours.py -is L429/L429_J_sub.fits L429/L429_Ks_sub.fits L429/L429_H_sub.fits -sfs phot_t3/L429_J_sex_t3_ap24.txt phot_t3/L429_Ks_sex_t3_ap24.txt phot_t3/L429_H_sex_t3_ap20.txt -ofile phot_t3/L429_allmags.txt -ofig L429/L429_cmd.png
-python colours.py -is L1521E/L1521E_J_sub.fits L1521E/L1521E_Ks_sub.fits L1521E/L1521E_H_sub.fits -sfs phot_t3/L1521E_J_sex_t3_ap30.txt phot_t3/L1521E_Ks_sex_t3_ap28.txt phot_t3/L1521E_H_sex_t3_ap26.txt -ofile phot_t3/L1521E_allmags.txt -ofig L1521E/L1521E_cmd.png
-python colours.py -is L1544/L1544_J_sub.fits L1544/L1544_Ks_sub.fits L1544/L1544_H_sub.fits -sfs phot_t3/L1544_J_sex_t3_ap28.txt phot_t3/L1544_Ks_sex_t3_ap28.txt phot_t3/L1544_H_sex_t3_ap28.txt -ofile phot_t3/L1544_allmags.txt -ofig L1544/L1544_cmd.png
-python colours.py -is L1552/L1544_J_sub.fits L1552/L1552_Ks_sub.fits L1552/L1552_H_sub.fits -sfs phot_t3/L1552_J_sex_t3_ap28.txt phot_t3/L1552_Ks_sex_t3_ap28.txt phot_t3/L1552_H_sex_t3_ap28.txt -ofile phot_t3/L1552_allmags.txt -ofig L1552/L1552_cmd.png
-
+python colours.py -is CB68/CB68_J_sub.fits CB68/CB68_Ks_sub.fits CB68/CB68_H_sub.fits -sfs phot_t7/CB68_J_sex_t7_ap30.txt phot_t7/CB68_Ks_sex_t7_ap24.txt phot_t7/CB68_H_sex_t7_ap30.txt -ofile phot_t7/CB68_allmags.txt -ofig CB68/CB68_cmd.png
+python colours.py -is L429/L429_J_sub.fits L429/L429_Ks_sub.fits L429/L429_H_sub.fits -sfs phot_t7/L429_J_sex_t7_ap24.txt phot_t7/L429_Ks_sex_t7_ap24.txt phot_t7/L429_H_sex_t7_ap26.txt -ofile phot_t7/L429_allmags.txt -ofig L429/L429_cmd.png
+python colours.py -is L1521E/L1521E_J_sub.fits L1521E/L1521E_Ks_sub.fits L1521E/L1521E_H_sub.fits -sfs phot_t7/L1521E_J_sex_t7_ap30.txt phot_t7/L1521E_Ks_sex_t7_ap28.txt phot_t7/L1521E_H_sex_t7_ap26.txt -ofile phot_t7/L1521E_allmags.txt -ofig L1521E/L1521E_cmd.png
+python colours.py -is L1544/L1544_J_sub.fits L1544/L1544_Ks_sub.fits L1544/L1544_H_sub.fits -sfs phot_t7/L1544_J_sex_t7_ap34.txt phot_t7/L1544_Ks_sex_t7_ap30.txt phot_t7/L1544_H_sex_t7_ap30.txt -ofile phot_t7/L1544_allmags.txt -ofig L1544/L1544_cmd.png
+python colours.py -is L1552/L1552_J_sub.fits L1552/L1552_Ks_sub.fits L1552/L1552_H_sub.fits -sfs phot_t7/L1552_J_sex_t7_ap32.txt phot_t7/L1552_Ks_sex_t7_ap32.txt phot_t7/L1552_H_sex_t7_ap32.txt -ofile phot_t7/L1552_allmags.txt -ofig L1552/L1552_cmd.png
 """
 
 import argparse
@@ -87,11 +87,17 @@ def main():
         sexfile_j, sexfile_ks, sexfile_h = args.sexfiles
         fits_j, fits_ks, fits_h = args.images
 
+        print '** Removing saturated stars'
         # remove stars saturated in the fits images, marked with 0 center
-        phot_j = phot_curves.remove_saturated(fits_j, sexfile_j)
-        phot_ks = phot_curves.remove_saturated(fits_ks, sexfile_ks)
-        phot_h = phot_curves.remove_saturated(fits_h, sexfile_h)
+        phot_j_unsat = phot_curves.remove_saturated(fits_j, sexfile_j)
+        phot_ks_unsat = phot_curves.remove_saturated(fits_ks, sexfile_ks)
+        phot_h_unsat = phot_curves.remove_saturated(fits_h, sexfile_h)
 
+        phot_j = phot_j_unsat[np.where(phot_j_unsat['MAG_APER'] < 50.)]
+        phot_ks = phot_ks_unsat[np.where(phot_ks_unsat['MAG_APER'] < 50.)]
+        phot_h = phot_h_unsat[np.where(phot_h_unsat['MAG_APER'] < 50.)]
+
+        print '** Removing objcts with nonstellar PSFs'
         i_j = phot_curves.half_light(phot_j['MAG_APER'], phot_j['FLUX_RADIUS'], toplot=False)
         phot_j = phot_j[i_j]
         i_k = phot_curves.half_light(phot_ks['MAG_APER'], phot_ks['FLUX_RADIUS'], toplot=False)
@@ -99,12 +105,14 @@ def main():
         i_h = phot_curves.half_light(phot_h['MAG_APER'], phot_h['FLUX_RADIUS'], toplot=False)
         phot_h = phot_h[i_h]
 
+        print '** Matching stars in J,H,K catalogues, please wait'
         # match the stars in each source extractor file by nearest neighbour
         mags = sort_by_coords_tree(phot_j, phot_ks, phot_h, float(args.maxsep), args.toplot)
         mags.to_csv(args.outfile, index=False, delimater=' ')
-    else:
-        print 'Reading magnitude table from file {}'.format(args.outfile)
-        mags = ascii.read(args.outfile)
+
+
+    print 'Reading magnitude table from file {}'.format(args.outfile)
+    mags = ascii.read(args.outfile)
 
     outfig_cc = args.outfig.split('.')[0] + '_cc.png'
     mags_colours = [mags['mag_aper_J'].data, mags['mag_aper_H'].data, mags['mag_aper_Ks'].data]
