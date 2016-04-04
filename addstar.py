@@ -191,7 +191,6 @@ def main():
         print 'sex -c phot_t7.sex ../{} -CATALOG_NAME ../{} -PHOT_APERTURES 30 -MAG_ZEROPOINT {} \n'.format(outimage,
                                                                                                             outartsexfile,
                                                                                                             _ZEROPOINT)
-
     if os.path.exists(artsexfile):
         fig_regions = _ARTPNG.format(magstr + '_each')
         fig_all = _ARTPNG.format(magstr + '_all')
@@ -203,23 +202,27 @@ def find_art_stars_allregions(artsexfile, artfiles, mags, toplot, fig_regions, f
     recovered = []
     artmagdiff = []
 
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(8, 10))
     for i, artfile in enumerate(artfiles):
         ax = fig.add_subplot(4, 3, i + 1)
 
         artmags, recov, magdiff = find_art_stars(artsexfile, artfile, mags[i], toplot=False, writeto=toplot)
 
         if len(artmags) > 1:  # only plot if we recover at least two stars, otherwise histogram plotting error
-            n, bins, patches = plt.hist(artmags, 50, color='b', alpha=0.5, label='{:<2.1f}%'.format(recov * 100.))
-        ax.axvline(np.mean(artmags), color='k', label='mean {:<4.3}'.format(np.mean(artmags)))
-        ax.axvline(mags[i], 0, 10, color='r', label='PSF mag {}'.format(mags[i]))
-        ax.legend(loc=0, fontsize='small')
+            n, bins, patches = plt.hist(artmags, 50, color='b', alpha=0.5, label='{:2.1f}%'.format(recov * 100.))
+        ax.axvline(np.mean(artmags), color='k', label='mean {:2.2f}'.format(np.mean(artmags)))
+        ax.axvline(mags[i], 0, 10, color='r', label='PSF {:2.2f}'.format(mags[i]))
+        ax.set_xlabel('Magnitude')
+        ax.set_ylabel('Number counts')
+
+        ax.legend(loc=0, fontsize=10, frameon=False)
         ax.set_xlim(17, 24)
 
         allartmags = np.concatenate((allartmags, artmags))
         recovered.append(recov)
         artmagdiff.append(magdiff)
 
+    plt.tight_layout()
     plt.savefig(fig_regions)
     plt.show()
 
