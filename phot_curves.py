@@ -35,15 +35,9 @@ sex -c phot_t7.sex ../release/CB68_H_sub.fits -CATALOG_NAME CB68_H_sex_t7.txt
 sex -c phot_t7.sex ../release/CB68_Ks_sub.fits -CATALOG_NAME CB68_Ks_sex_t7.txt
 
 For every aperture selected in source extractor, calculate the average magnitude, and display as a curve of growth:
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt --outcurvegrowth CB68/CB68_J_mags_t20.png --outmags CB68/CB68_J_diff.png
-python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt --outcurvegrowth CB68/CB68_H_mags_t20.png --outmags CB68/CB68_H_diff.png
-python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt --outcurvegrowth CB68/CB68_Ks_mags_t20.png --outmags CB68/CB68_Ks_diff.png
-
-python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth CB68/CB68_J_mags_t20.png --r_fed 30 --outhlr CB68/CB68_J_halflight.png
-
-python phot_curves.py -img L1552/L1552_J_sub.fits -sf phot_t15/L1552_J_sex_t15.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth L1552/L1552_J_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_J_halflight_t15.png
-python phot_curves.py -img L1552/L1552_H_sub.fits -sf phot_t15/L1552_H_sex_t15.txt -aps 5 10 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 --outcurvegrowth L1552/L1552_H_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_H_halflight_t15.png
-python phot_curves.py -img L1552/L1552_Ks_sub.fits -sf phot_t15/L1552_Ks_sex_t15.txt --kron_factor 2. --outcurvegrowth L1552/L1552_Ks_mags_t15.png --r_fed 30 --outhalflight L1552/L1552_Ks_halflight_t15.png
+python phot_curves.py -img CB68/CB68_J_sub.fits -sf phot_t20/CB68_J_sex_t20.txt --outcurvegrowth CB68/CB68_J_mags_t20.png --outhalflight CB68/CB68_J_halflight.png --outcomparemag CB68/CB68_J_halflight.png
+python phot_curves.py -img CB68/CB68_H_sub.fits -sf phot_t20/CB68_H_sex_t20.txt --outcurvegrowth CB68/CB68_H_mags_t20.png  --outhalflight CB68/CB68_H_halflight.png
+python phot_curves.py -img CB68/CB68_Ks_sub.fits -sf phot_t20/CB68_Ks_sex_t20.txt --outcurvegrowth CB68/CB68_Ks_mags_t20.png  --outhalflight CB68/CB68_Ks_halflight.png
 """
 
 import numpy as np
@@ -159,7 +153,7 @@ def main():
         plt.show()
 
 
-def remove_saturated(image, sexfile, factor=1.):
+def remove_saturated(image, sexfile, factor=3.):
     imgdata, imghdr = read_fits(image)  # Access fits data to read locations of saturated stars
 
     phottable = ascii.read(sexfile, format='sextractor')
@@ -237,9 +231,10 @@ def curve_of_growths(phottable, apertures, r_feducial=None, outimage=None):
 
     ax = plt.gca()
     ax.plot(aps_fine, fit, '-r', label=r'exponential fit, $\chi^2=${:<2.3f}'.format(chi2))
-    ax.scatter(apertures, average_rel, marker='.', label=r'$\Delta$ magnitude')
+
     # ax.errorbar(apertures, average_rel, yerr=yerr, fmt='.', label=r'$\Delta$ magnitude')
     ax.plot(aps_fine, aps_fine * 0., ':k')
+    ax.scatter(apertures, average_rel, marker='.', s=4, label=r'$\Delta$ magnitude')
     ax.invert_yaxis()
     ax.set_xlabel('aperture')
     ax.set_ylabel(r'$\Delta$ magnitude relative to aperture {}'.format(ap_fed))
